@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio Delivery — Send Work to Dev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0E0E0F;
+    --surface: #161618;
+    --surface2: #1C1C1F;
+    --surface3: #242428;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #F0EFEB;
+    --muted: #888884;
+    --muted2: #555552;
+    --accent: #C8FB4F;
+    --accent2: #A8E020;
+    --accent-bg: rgba(200,251,79,0.08);
+    --accent-border: rgba(200,251,79,0.25);
+    --red: #FF5757;
+    --blue: #5B9CF6;
+    --mono: 'DM Mono', monospace;
+    --display: 'Syne', sans-serif;
+    --body: 'DM Sans', sans-serif;
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  html { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 15px; }
+  body { min-height: 100vh; }
+
+  /* LAYOUT */
+  .app { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
+
+  header {
+    padding: 0 32px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .logo-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  .header-actions { display: flex; align-items: center; gap: 10px; }
+
+  .count-pill {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+  .count-pill span { color: var(--accent); }
+
+  .main { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 56px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--surface);
+  }
+
+  .sidebar-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 12px;
+  }
+
+  /* DROPZONE */
+  .dropzone {
+    border: 1.5px dashed var(--border2);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+    background: transparent;
+  }
+  .dropzone:hover, .dropzone.drag-over {
+    border-color: var(--accent);
+    background: var(--accent-bg);
+  }
+  .dropzone-icon {
+    font-size: 28px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: block;
+  }
+  .dropzone:hover .dropzone-icon, .dropzone.drag-over .dropzone-icon {
+    color: var(--accent);
+  }
+  .dropzone p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .dropzone strong { color: var(--text); font-weight: 500; }
+  #file-input { display: none; }
+
+  /* TAG INPUTS */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 9px 12px;
+    border-radius: var(--radius);
+    font-family: var(--body);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s;
+    appearance: none;
+  }
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888884' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 32px;
+    cursor: pointer;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field input::placeholder { color: var(--muted2); }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    font-family: var(--body);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-accent {
+    background: var(--accent);
+    color: #0E0E0F;
+    width: 100%;
+    justify-content: center;
+  }
+  .btn-accent:hover { background: var(--accent2); }
+  .btn-accent:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+
+  .btn-export {
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    font-size: 14px;
+  }
+  .btn-export:hover { background: rgba(200,251,79,0.14); }
+  .btn-export:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* SIDEBAR FILTERS */
+  .filter-group { display: flex; flex-direction: column; gap: 4px; }
+  .filter-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    color: var(--muted);
+    font-family: var(--body);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.12s;
+  }
+  .filter-btn:hover { background: var(--surface2); color: var(--text); }
+  .filter-btn.active { background: var(--accent-bg); color: var(--accent); }
+  .filter-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--surface3);
+    padding: 2px 7px;
+    border-radius: 10px;
+    color: var(--muted);
+  }
+  .filter-btn.active .filter-badge { background: rgba(200,251,79,0.15); color: var(--accent); }
+
+  /* CONTENT AREA */
+  .content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .content-header {
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+
+  .content-title {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+
+  .view-toggle { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; }
+  .view-btn {
+    padding: 5px 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 15px;
+    transition: all 0.12s;
+  }
+  .view-btn.active { background: var(--surface3); color: var(--text); }
+
+  /* GRID */
+  .file-grid {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 28px;
+  }
+
+  .grid-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 14px;
+  }
+  .list-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* FILE CARD — GRID */
+  .file-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.15s;
+    position: relative;
+    cursor: pointer;
+  }
+  .file-card:hover { border-color: var(--border2); }
+  .file-card.selected { border-color: var(--accent); }
+  .file-card.selected::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--accent-bg);
+    pointer-events: none;
+    border-radius: var(--radius-lg);
+  }
+
+  .card-preview {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: var(--muted2);
+    position: relative;
+    overflow: hidden;
+  }
+  .card-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .card-preview video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .card-body { padding: 11px 12px; }
+  .card-filename {
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 8px;
+    color: var(--text);
+  }
+  .card-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tag {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .tag-client { background: rgba(91,156,246,0.12); color: #5B9CF6; }
+  .tag-type { background: rgba(200,251,79,0.1); color: var(--accent); }
+  .tag-unset { background: var(--surface3); color: var(--muted); }
+
+  .card-delete {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 26px; height: 26px;
+    background: rgba(14,14,15,0.8);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 14px;
+    backdrop-filter: blur(4px);
+    transition: all 0.12s;
+  }
+  .file-card:hover .card-delete { display: flex; }
+  .card-delete:hover { background: var(--red); border-color: var(--red); color: white; }
+
+  /* FILE ROW — LIST */
+  .file-row {
+    display: grid;
+    grid-template-columns: 40px 1fr auto auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color 0.12s;
+  }
+  .file-row:hover { border-color: var(--border2); }
+  .file-row.selected { border-color: var(--accent); background: var(--accent-bg); }
+  .row-icon {
+    width: 36px; height: 36px;
+    background: var(--surface2);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .row-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row-meta { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: var(--mono); }
+  .row-delete {
+    width: 28px; height: 28px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    color: var(--muted2);
+    font-size: 14px;
+    transition: all 0.12s;
+    flex-shrink: 0;
+  }
+  .row-delete:hover { background: rgba(255,87,87,0.1); border-color: var(--red); color: var(--red); }
+
+  /* EMPTY STATE */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--muted);
+    padding: 40px;
+  }
+  .empty-icon { font-size: 40px; color: var(--muted2); }
+  .empty-state h3 { font-family: var(--display); font-size: 16px; font-weight: 600; color: var(--text); }
+  .empty-state p { font-size: 13px; text-align: center; line-height: 1.6; max-width: 260px; }
+
+  /* EDIT PANEL */
+  .edit-panel {
+    position: fixed;
+    right: 0; top: 56px;
+    width: 280px;
+    height: calc(100vh - 56px);
+    background: var(--surface);
+    border-left: 1px solid var(--border);
+    padding: 20px;
+    z-index: 90;
+    transform: translateX(100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .edit-panel.open { transform: translateX(0); }
+
+  .edit-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .edit-panel-title {
+    font-family: var(--display);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .edit-preview-wrap {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: var(--muted2);
+  }
+  .edit-preview-wrap img, .edit-preview-wrap video {
+    width: 100%; height: 100%;
+    object-fit: cover;
+  }
+
+  .edit-filename {
+    font-size: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    word-break: break-all;
+  }
+
+  .btn-save {
+    background: var(--accent);
+    color: #0E0E0F;
+    width: 100%;
+    justify-content: center;
+    margin-top: auto;
+  }
+  .btn-save:hover { background: var(--accent2); }
+
+  /* EXPORT MODAL */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: none;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    width: 420px;
+    max-width: 95vw;
+  }
+  .modal h2 {
+    font-family: var(--display);
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+
+  .manifest-preview {
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.7;
+    max-height: 180px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+  }
+  .json-key { color: var(--blue); }
+  .json-str { color: #A8E020; }
+  .json-num { color: #FF9F5B; }
+
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions .btn { flex: 1; justify-content: center; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+  /* NOTIFY */
+  .notify {
+    position: fixed;
+    bottom: 20px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 10px 18px;
+    font-size: 13px;
+    color: var(--text);
+    display: flex; align-items: center; gap: 8px;
+    z-index: 300;
+    transition: transform 0.2s ease;
+    white-space: nowrap;
+  }
+  .notify.show { transform: translateX(-50%) translateY(0); }
+  .notify-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); }
+
+  /* ADD CLIENT INPUT */
+  .inline-add {
+    display: flex; gap: 6px; margin-top: 8px;
+  }
+  .inline-add input {
+    flex: 1;
+    background: var(--surface3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-family: var(--body);
+    font-size: 13px;
+    outline: none;
+  }
+  .inline-add input:focus { border-color: var(--accent); }
+  .inline-add button {
+    padding: 7px 12px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    border: 1px solid var(--accent-border);
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: var(--body);
+  }
+  .inline-add button:hover { background: rgba(200,251,79,0.16); }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+  }
+  .stat-label { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 3px; }
+  .stat-val { font-family: var(--display); font-size: 20px; font-weight: 700; color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    delivr
+  </div>
+  <div class="header-actions">
+    <div class="count-pill" id="count-pill"><span id="total-count">0</span> files</div>
+    <button class="btn btn-ghost" onclick="clearAll()" id="clear-btn" style="display:none">Clear all</button>
+    <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>
+      ↓ Export for dev
+    </button>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Add files</div>
+      <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
+        <span class="dropzone-icon">↑</span>
+        <p><strong>Drop files here</strong><br>or click to browse<br><span style="font-size:11px; margin-top:4px; display:block">Images, video, PDF, fonts, any file</span></p>
+      </div>
+      <input type="file" id="file-input" multiple>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Tag selected</div>
+      <p style="font-size:12px; color:var(--muted); margin-bottom:12px; line-height:1.5">Click any file to select it, then tag it here</p>
+      <div class="field">
+        <label>Client</label>
+        <select id="tag-client">
+          <option value="">— select client —</option>
+        </select>
+      </div>
+      <div class="inline-add">
+        <input type="text" id="new-client-input" placeholder="New client…">
+        <button onclick="addClient()">+ Add</button>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label>Work type</label>
+        <select id="tag-type">
+          <option value="">— select type —</option>
+          <option>Graphic Design</option>
+          <option>Motion</option>
+          <option>Web Design</option>
+          <option>UI / UX</option>
+          <option>Branding</option>
+          <option>Photography</option>
+          <option>Illustration</option>
+          <option>3D / CGI</option>
+          <option>Copywriting</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Notes (optional)</label>
+        <input type="text" id="tag-notes" placeholder="e.g. Hero banner, final version">
+      </div>
+      <button class="btn btn-accent" id="apply-tag-btn" onclick="applyTag()" disabled>Apply tag to selected</button>
+    </div>
+
+    <div class="sidebar-section" style="border-bottom:none; flex:1">
+      <div class="sidebar-label">Filter view</div>
+      <div class="filter-group" id="filter-group">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter('all', this)">
+          All files <span class="filter-badge" id="filter-all-count">0</span>
+        </button>
+        <button class="filter-btn" data-filter="untagged" onclick="setFilter('untagged', this)">
+          Untagged <span class="filter-badge" id="filter-untagged-count">0</span>
+        </button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- CONTENT -->
+  <div class="content">
+    <div class="content-header">
+      <div class="content-title" id="view-title">All files</div>
+      <div style="display:flex; align-items:center; gap:10px">
+        <div id="select-info" style="font-size:12px; color:var(--muted); display:none"></div>
+        <div class="view-toggle">
+          <button class="view-btn active" id="grid-btn" onclick="setView('grid')" title="Grid view">⊞</button>
+          <button class="view-btn" id="list-btn" onclick="setView('list')" title="List view">☰</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="file-grid" id="file-grid">
+      <div class="empty-state" id="empty-state">
+        <div class="empty-icon">◫</div>
+        <h3>No files yet</h3>
+        <p>Upload your portfolio work using the panel on the left. Then tag each file with a client and work type.</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<!-- EDIT PANEL -->
+<div class="edit-panel" id="edit-panel">
+  <div class="edit-panel-header">
+    <div class="edit-panel-title">Edit file tags</div>
+    <button class="btn-ghost btn" style="padding:5px 10px; font-size:12px" onclick="closeEditPanel()">✕ Close</button>
+  </div>
+  <div class="edit-preview-wrap" id="edit-preview"></div>
+  <div class="edit-filename" id="edit-filename"></div>
+
+  <div class="field">
+    <label>Client</label>
+    <select id="edit-client"></select>
+  </div>
+  <div class="field">
+    <label>Work type</label>
+    <select id="edit-type">
+      <option value="">— select type —</option>
+      <option>Graphic Design</option>
+      <option>Motion</option>
+      <option>Web Design</option>
+      <option>UI / UX</option>
+      <option>Branding</option>
+      <option>Photography</option>
+      <option>Illustration</option>
+      <option>3D / CGI</option>
+      <option>Copywriting</option>
+      <option>Other</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>Notes</label>
+    <input type="text" id="edit-notes" placeholder="Optional note…">
+  </div>
+  <button class="btn btn-save btn" onclick="saveEdit()">Save tags</button>
+</div>
+
+<!-- EXPORT MODAL -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal">
+    <h2>Export for developer</h2>
+    <p class="modal-sub">This will generate a ZIP containing all your files + a <code style="font-family:var(--mono); font-size:12px; color:var(--accent)">manifest.json</code>. The dev can parse the JSON to auto-categorize everything.</p>
+    <div class="stat-row">
+      <div class="stat-box"><div class="stat-label">Total files</div><div class="stat-val" id="exp-total">0</div></div>
+      <div class="stat-box"><div class="stat-label">Untagged</div><div class="stat-val" id="exp-untagged" style="color:var(--red)">0</div></div>
+    </div>
+    <div class="manifest-preview" id="manifest-preview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeExport()">Cancel</button>
+      <button class="btn btn-accent" id="download-btn" onclick="downloadZip()">↓ Download ZIP</button>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFY -->
+<div class="notify" id="notify">
+  <div class="notify-dot"></div>
+  <span id="notify-msg">Done</span>
+</div>
+
+<script>
+let files = [];
+let clients = [];
+let selectedId = null;
+let currentFilter = 'all';
+let viewMode = 'grid';
+let editId = null;
+
+const WORK_TYPES_SLUG = {
+  'Graphic Design': 'graphic-design',
+  'Motion': 'motion',
+  'Web Design': 'web-design',
+  'UI / UX': 'ui-ux',
+  'Branding': 'branding',
+  'Photography': 'photography',
+  'Illustration': 'illustration',
+  '3D / CGI': '3d-cgi',
+  'Copywriting': 'copywriting',
+  'Other': 'other'
+};
+
+function uid() {
+  return Math.random().toString(36).slice(2,9);
+}
+
+function fileIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext)) return '🖼';
+  if (['mp4','mov','avi','webm','mkv'].includes(ext)) return '🎬';
+  if (['pdf'].includes(ext)) return '📄';
+  if (['mp3','wav','aac','flac'].includes(ext)) return '🔊';
+  if (['zip','rar','7z'].includes(ext)) return '📦';
+  if (['ttf','otf','woff','woff2'].includes(ext)) return '🔤';
+  if (['psd','ai','fig','sketch','xd'].includes(ext)) return '🎨';
+  if (['html','css','js','jsx','ts'].includes(ext)) return '💻';
+  return '📁';
+}
+
+function isImage(name) {
+  return /\.(jpg|jpeg|png|gif|webp|svg|avif)$/i.test(name);
+}
+function isVideo(name) {
+  return /\.(mp4|mov|webm|avi)$/i.test(name);
+}
+
+function updateClientSelects() {
+  const opts = ['<option value="">— select client —</option>',
+    ...clients.map(c => `<option value="${c}">${c}</option>`)].join('');
+  document.getElementById('tag-client').innerHTML = opts;
+
+  const editOpts = ['<option value="">— select client —</option>',
+    ...clients.map(c => `<option value="${c}">${c}</option>`)].join('');
+  document.getElementById('edit-client').innerHTML = editOpts;
+
+  const filterGroup = document.getElementById('filter-group');
+  const base = filterGroup.querySelectorAll('[data-filter="all"], [data-filter="untagged"]');
+  Array.from(filterGroup.children).forEach(el => {
+    if (!['all','untagged'].includes(el.dataset.filter)) el.remove();
+  });
+  clients.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'filter-btn';
+    btn.dataset.filter = 'client:' + c;
+    btn.onclick = () => setFilter('client:' + c, btn);
+    const count = files.filter(f => f.client === c).length;
+    btn.innerHTML = `${c} <span class="filter-badge">${count}</span>`;
+    filterGroup.appendChild(btn);
+  });
+}
+
+function addClient() {
+  const input = document.getElementById('new-client-input');
+  const val = input.value.trim();
+  if (!val || clients.includes(val)) return;
+  clients.push(val);
+  input.value = '';
+  updateClientSelects();
+  notify(`Client "${val}" added`);
+}
+
+document.getElementById('new-client-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addClient();
+});
+
+function handleFiles(fileList) {
+  Array.from(fileList).forEach(file => {
+    const entry = {
+      id: uid(),
+      file,
+      name: file.name,
+      size: file.size,
+      client: '',
+      type: '',
+      notes: '',
+      url: null
+    };
+    if (isImage(file.name) || isVideo(file.name)) {
+      entry.url = URL.createObjectURL(file);
+    }
+    files.push(entry);
+  });
+  render();
+  updateStats();
+  notify(`${fileList.length} file${fileList.length > 1 ? 's' : ''} added`);
+}
+
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag-over');
+  handleFiles(e.dataTransfer.files);
+});
+document.getElementById('file-input').addEventListener('change', e => handleFiles(e.target.files));
+
+function filteredFiles() {
+  if (currentFilter === 'all') return files;
+  if (currentFilter === 'untagged') return files.filter(f => !f.client || !f.type);
+  if (currentFilter.startsWith('client:')) {
+    const c = currentFilter.slice(7);
+    return files.filter(f => f.client === c);
+  }
+  return files;
+}
+
+function render() {
+  const grid = document.getElementById('file-grid');
+  const empty = document.getElementById('empty-state');
+  const list = filteredFiles();
+
+  document.getElementById('total-count').textContent = files.length;
+  document.getElementById('export-btn').disabled = files.length === 0;
+  document.getElementById('clear-btn').style.display = files.length ? '' : 'none';
+
+  if (files.length === 0) {
+    grid.innerHTML = '';
+    grid.appendChild(empty);
+    empty.style.display = 'flex';
+    return;
+  }
+
+  empty.style.display = 'none';
+
+  if (viewMode === 'grid') {
+    grid.innerHTML = '<div class="grid-layout" id="grid-inner"></div>';
+    const inner = document.getElementById('grid-inner');
+    list.forEach(f => inner.appendChild(makeCard(f)));
+  } else {
+    grid.innerHTML = '<div class="list-layout" id="list-inner"></div>';
+    const inner = document.getElementById('list-inner');
+    list.forEach(f => inner.appendChild(makeRow(f)));
+  }
+
+  updateSelectInfo();
+}
+
+function makeCard(f) {
+  const el = document.createElement('div');
+  el.className = 'file-card' + (selectedId === f.id ? ' selected' : '');
+  el.dataset.id = f.id;
+
+  let preview = '';
+  if (f.url && isImage(f.name)) {
+    preview = `<img src="${f.url}" alt="${f.name}" loading="lazy">`;
+  } else if (f.url && isVideo(f.name)) {
+    preview = `<video src="${f.url}" muted></video>`;
+  } else {
+    preview = fileIcon(f.name);
+  }
+
+  const clientTag = f.client
+    ? `<span class="tag tag-client">${f.client}</span>`
+    : '<span class="tag tag-unset">no client</span>';
+
+  const typeTag = f.type
+    ? `<span class="tag tag-type">${f.type}</span>`
+    : '<span class="tag tag-unset">no type</span>';
+
+  el.innerHTML = `
+    <div class="card-preview">${preview}</div>
+    <div class="card-body">
+      <div class="card-filename" title="${f.name}">${f.name}</div>
+      <div class="card-tags">${clientTag}${typeTag}</div>
+    </div>
+    <button class="card-delete" onclick="deleteFile(event,'${f.id}')">✕</button>
+  `;
+  el.addEventListener('click', () => selectFile(f.id));
+  return el;
+}
+
+function makeRow(f) {
+  const el = document.createElement('div');
+  el.className = 'file-row' + (selectedId === f.id ? ' selected' : '');
+  el.dataset.id = f.id;
+
+  const clientTag = f.client
+    ? `<span class="tag tag-client">${f.client}</span>`
+    : '<span class="tag tag-unset">no client</span>';
+
+  const typeTag = f.type
+    ? `<span class="tag tag-type">${f.type}</span>`
+    : '<span class="tag tag-unset">no type</span>';
+
+  const size = f.size < 1048576
+    ? (f.size/1024).toFixed(0) + ' KB'
+    : (f.size/1048576).toFixed(1) + ' MB';
+
+  el.innerHTML = `
+    <div class="row-icon">${fileIcon(f.name)}</div>
+    <div>
+      <div class="row-name">${f.name}</div>
+      <div class="row-meta">${size}</div>
+    </div>
+    <div class="card-tags">${clientTag}</div>
+    <div class="card-tags">${typeTag}</div>
+    <button class="row-delete" onclick="deleteFile(event,'${f.id}')">✕</button>
+  `;
+  el.addEventListener('click', () => selectFile(f.id));
+  return el;
+}
+
+function selectFile(id) {
+  if (selectedId === id) {
+    selectedId = null;
+    closeEditPanel();
+  } else {
+    selectedId = id;
+    openEditPanel(id);
+  }
+  document.getElementById('apply-tag-btn').disabled = !selectedId;
+  render();
+  updateSelectInfo();
+}
+
+function updateSelectInfo() {
+  const el = document.getElementById('select-info');
+  if (selectedId) {
+    const f = files.find(x => x.id === selectedId);
+    el.style.display = '';
+    el.textContent = `Editing: ${f ? f.name : ''}`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function applyTag() {
+  if (!selectedId) return;
+  const client = document.getElementById('tag-client').value;
+  const type = document.getElementById('tag-type').value;
+  const notes = document.getElementById('tag-notes').value;
+  const f = files.find(x => x.id === selectedId);
+  if (f) {
+    f.client = client;
+    f.type = type;
+    f.notes = notes;
+  }
+  render();
+  updateStats();
+  updateClientSelects();
+  notify('Tags applied');
+}
+
+function openEditPanel(id) {
+  editId = id;
+  const f = files.find(x => x.id === id);
+  if (!f) return;
+
+  document.getElementById('edit-panel').classList.add('open');
+  document.getElementById('edit-filename').textContent = f.name;
+
+  const prev = document.getElementById('edit-preview');
+  if (f.url && isImage(f.name)) {
+    prev.innerHTML = `<img src="${f.url}" alt="${f.name}">`;
+  } else if (f.url && isVideo(f.name)) {
+    prev.innerHTML = `<video src="${f.url}" muted></video>`;
+  } else {
+    prev.innerHTML = `<span style="font-size:40px">${fileIcon(f.name)}</span>`;
+  }
+
+  updateClientSelects();
+  document.getElementById('edit-client').value = f.client || '';
+  document.getElementById('edit-type').value = f.type || '';
+  document.getElementById('edit-notes').value = f.notes || '';
+}
+
+function closeEditPanel() {
+  document.getElementById('edit-panel').classList.remove('open');
+  editId = null;
+}
+
+function saveEdit() {
+  const f = files.find(x => x.id === editId);
+  if (!f) return;
+  f.client = document.getElementById('edit-client').value;
+  f.type = document.getElementById('edit-type').value;
+  f.notes = document.getElementById('edit-notes').value;
+  render();
+  updateStats();
+  updateClientSelects();
+  notify('Tags saved');
+  closeEditPanel();
+  selectedId = null;
+}
+
+function deleteFile(e, id) {
+  e.stopPropagation();
+  files = files.filter(f => f.id !== id);
+  if (selectedId === id) { selectedId = null; closeEditPanel(); }
+  render();
+  updateStats();
+  updateClientSelects();
+}
+
+function clearAll() {
+  if (!confirm('Remove all files?')) return;
+  files = [];
+  selectedId = null;
+  closeEditPanel();
+  render();
+  updateStats();
+  updateClientSelects();
+}
+
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const label = {
+    'all': 'All files',
+    'untagged': 'Untagged files'
+  }[filter] || filter.replace('client:', '') + ' — work';
+  document.getElementById('view-title').textContent = label;
+  render();
+}
+
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('grid-btn').classList.toggle('active', mode === 'grid');
+  document.getElementById('list-btn').classList.toggle('active', mode === 'list');
+  render();
+}
+
+function updateStats() {
+  const untagged = files.filter(f => !f.client || !f.type).length;
+  document.getElementById('filter-all-count').textContent = files.length;
+  document.getElementById('filter-untagged-count').textContent = untagged;
+
+  // update client filter counts
+  document.querySelectorAll('[data-filter^="client:"]').forEach(btn => {
+    const c = btn.dataset.filter.slice(7);
+    const count = files.filter(f => f.client === c).length;
+    btn.querySelector('.filter-badge').textContent = count;
+  });
+}
+
+function buildManifest() {
+  return {
+    generated: new Date().toISOString(),
+    total: files.length,
+    files: files.map((f, i) => ({
+      index: i + 1,
+      filename: f.name,
+      client: f.client || null,
+      client_slug: f.client ? f.client.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g,'') : null,
+      work_type: f.type || null,
+      work_type_slug: f.type ? (WORK_TYPES_SLUG[f.type] || f.type.toLowerCase().replace(/\s+/g,'-')) : null,
+      notes: f.notes || null,
+      size_bytes: f.size,
+      path: f.client && f.type
+        ? `${f.client.replace(/\s+/g,'-')}/${WORK_TYPES_SLUG[f.type] || 'other'}/${f.name}`
+        : f.name
+    }))
+  };
+}
+
+function renderManifestPreview(manifest) {
+  const preview = manifest.files.slice(0, 2).map(f => JSON.stringify(f, null, 2)).join(',\n');
+  const more = manifest.files.length > 2 ? `\n  // ...and ${manifest.files.length - 2} more` : '';
+  const raw = `{\n  "generated": "${manifest.generated}",\n  "total": ${manifest.total},\n  "files": [\n${preview}${more}\n  ]\n}`;
+  return raw
+    .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+    .replace(/: "([^"]*)"/g, ': <span class="json-str">"$1"</span>')
+    .replace(/: (\d+)/g, ': <span class="json-num">$1</span>')
+    .replace(/: null/g, ': <span class="json-num">null</span>');
+}
+
+function openExport() {
+  const untagged = files.filter(f => !f.client || !f.type).length;
+  document.getElementById('exp-total').textContent = files.length;
+  document.getElementById('exp-untagged').textContent = untagged;
+  const manifest = buildManifest();
+  document.getElementById('manifest-preview').innerHTML = '<pre style="font-size:11px;line-height:1.6">' + renderManifestPreview(manifest) + '</pre>';
+  document.getElementById('export-modal').classList.add('open');
+}
+
+function closeExport() {
+  document.getElementById('export-modal').classList.remove('open');
+}
+
+async function downloadZip() {
+  const btn = document.getElementById('download-btn');
+  btn.textContent = 'Packaging…';
+  btn.disabled = true;
+
+  const manifest = buildManifest();
+  const zip = new JSZip();
+
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  zip.file('README.md',
+`# Portfolio Delivery Package
+
+Generated: ${manifest.generated}
+Total files: ${manifest.total}
+
+## Structure
+
+Each file is listed in \`manifest.json\` with:
+- \`filename\` — original file name
+- \`client\` — client name
+- \`client_slug\` — URL-safe version (e.g. "acme-corp")
+- \`work_type\` — category label
+- \`work_type_slug\` — URL-safe version (e.g. "graphic-design")
+- \`notes\` — optional notes from the creative team
+- \`path\` — suggested folder path: \`{client}/{type}/{filename}\`
+
+## Quick start (JavaScript)
+
+\`\`\`js
+const manifest = require('./manifest.json');
+
+// Group by client
+const byClient = {};
+manifest.files.forEach(f => {
+  if (!byClient[f.client_slug]) byClient[f.client_slug] = [];
+  byClient[f.client_slug].push(f);
+});
+
+// Group by work type
+const byType = {};
+manifest.files.forEach(f => {
+  if (!byType[f.work_type_slug]) byType[f.work_type_slug] = [];
+  byType[f.work_type_slug].push(f);
+});
+\`\`\`
+`);
+
+  const filesFolder = zip.folder('files');
+  for (const f of files) {
+    filesFolder.file(f.name, f.file);
+  }
+
+  try {
+    const content = await zip.generateAsync({type:'blob', compression:'STORE'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = `portfolio-delivery-${new Date().toISOString().slice(0,10)}.zip`;
+    a.click();
+    notify('ZIP downloaded!');
+    closeExport();
+  } catch(err) {
+    notify('Export failed: ' + err.message);
+  }
+  btn.textContent = '↓ Download ZIP';
+  btn.disabled = false;
+}
+
+function notify(msg) {
+  const el = document.getElementById('notify');
+  document.getElementById('notify-msg').textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+render();
+</script>
+</body>
+</html>
