@@ -10,199 +10,79 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --bg: #0E0E0F;
-  --surface: #161618;
-  --surface2: #1C1C1F;
-  --surface3: #242428;
-  --border: rgba(255,255,255,0.08);
-  --border2: rgba(255,255,255,0.14);
-  --text: #F0EFEB;
-  --muted: #888884;
-  --muted2: #555552;
-  --accent: #C8FB4F;
-  --accent2: #A8E020;
-  --accent-bg: rgba(200,251,79,0.08);
-  --accent-border: rgba(200,251,79,0.25);
-  --red: #FF5757;
-  --blue: #5B9CF6;
-  --mono: 'DM Mono', monospace;
-  --display: 'Syne', sans-serif;
-  --body: 'DM Sans', sans-serif;
-  --radius: 10px;
-  --radius-lg: 16px;
+  --bg: #0E0E0F; --surface: #161618; --surface2: #1C1C1F; --surface3: #242428;
+  --border: rgba(255,255,255,0.08); --border2: rgba(255,255,255,0.14);
+  --text: #F0EFEB; --muted: #888884; --muted2: #555552;
+  --accent: #C8FB4F; --accent2: #A8E020;
+  --accent-bg: rgba(200,251,79,0.08); --accent-border: rgba(200,251,79,0.25);
+  --red: #FF5757; --blue: #5B9CF6;
+  --mono: 'DM Mono', monospace; --display: 'Syne', sans-serif; --body: 'DM Sans', sans-serif;
+  --radius: 10px; --radius-lg: 16px;
 }
-
 html { background: var(--bg); color: var(--text); font-family: var(--body); font-size: 15px; }
 body { min-height: 100vh; }
-
 .app { display: grid; grid-template-rows: auto 1fr; min-height: 100vh; }
 
 /* HEADER */
 header {
-  padding: 0 24px;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  background: var(--bg);
-  z-index: 100;
+  padding: 0 24px; height: 56px; display: flex; align-items: center;
+  justify-content: space-between; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--bg); z-index: 100;
 }
-
-.logo {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 16px;
-  letter-spacing: -0.01em;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.logo { font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
 .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
-
 .header-actions { display: flex; align-items: center; gap: 8px; }
-
-.count-pill {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  padding: 4px 10px;
-  border-radius: 20px;
-}
+.count-pill { font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--surface2); border: 1px solid var(--border); padding: 4px 10px; border-radius: 20px; }
 .count-pill span { color: var(--accent); }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 4px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
 
+/* LAYOUT */
 .main { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 56px); overflow: hidden; }
 
 /* SIDEBAR */
-.sidebar {
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  background: var(--surface);
-}
-
-.sidebar-section {
-  padding: 20px;
-  border-bottom: 1px solid var(--border);
-}
+.sidebar { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow-y: auto; background: var(--surface); }
+.sidebar-section { padding: 20px; border-bottom: 1px solid var(--border); }
 .sidebar-section:last-child { border-bottom: none; flex: 1; }
-
-.sidebar-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--muted2);
-  margin-bottom: 12px;
-}
+.sidebar-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted2); margin-bottom: 12px; }
 
 /* DROPZONE */
-.dropzone {
-  border: 1.5px dashed var(--border2);
-  border-radius: var(--radius);
-  padding: 28px 16px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.dropzone:hover, .dropzone.drag-over {
-  border-color: var(--accent);
-  background: var(--accent-bg);
-}
+.dropzone { border: 1.5px dashed var(--border2); border-radius: var(--radius); padding: 28px 16px; text-align: center; cursor: pointer; transition: all 0.15s; }
+.dropzone:hover, .dropzone.drag-over { border-color: var(--accent); background: var(--accent-bg); }
 .dropzone-icon { font-size: 24px; color: var(--muted); margin-bottom: 8px; display: block; transition: color 0.15s; }
 .dropzone:hover .dropzone-icon, .dropzone.drag-over .dropzone-icon { color: var(--accent); }
 .dropzone p { font-size: 13px; color: var(--muted); line-height: 1.5; }
 .dropzone strong { color: var(--text); font-weight: 500; }
 #file-input { display: none; }
 
-/* CLIENT LIST */
+/* CLIENTS */
 .client-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
-.client-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 7px 10px;
-  border-radius: 8px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  font-size: 13px;
-}
-.client-item-name { display: flex; align-items: center; gap: 8px; }
-.client-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
-.client-dot-plain { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.client-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 10px; border-radius: 8px; background: var(--surface2); border: 1px solid var(--border); font-size: 13px; }
+.client-item-name { display: flex; align-items: center; gap: 8px; overflow: hidden; }
+.client-avatar { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.client-avatar-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.client-item-name span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.client-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .client-count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-.client-delete {
-  background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 13px; padding: 2px 4px;
-  border-radius: 4px; line-height: 1; transition: all 0.1s;
-}
+.client-delete { background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 12px; padding: 2px 5px; border-radius: 4px; line-height: 1; transition: all 0.1s; }
 .client-delete:hover { color: var(--red); background: rgba(255,87,87,0.1); }
 
 .inline-add { display: flex; gap: 6px; }
-.inline-add input {
-  flex: 1;
-  background: var(--surface3);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-family: var(--body);
-  font-size: 13px;
-  outline: none;
-}
+.inline-add input { flex: 1; background: var(--surface3); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 8px; font-family: var(--body); font-size: 13px; outline: none; min-width: 0; }
 .inline-add input:focus { border-color: var(--accent); }
 .inline-add input::placeholder { color: var(--muted2); }
-.inline-add button {
-  padding: 8px 12px;
-  background: var(--accent-bg);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
-  border-radius: 8px;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: var(--body);
-  white-space: nowrap;
-}
+.inline-add button { padding: 8px 12px; background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--body); white-space: nowrap; }
 .inline-add button:hover { background: rgba(200,251,79,0.16); }
 
 /* BUTTONS */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 9px 14px;
-  border-radius: var(--radius);
-  font-family: var(--body);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  border: none;
-  transition: all 0.15s;
-  white-space: nowrap;
-}
-.btn-ghost {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--border);
-}
+.btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 14px; border-radius: var(--radius); font-family: var(--body); font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; white-space: nowrap; }
+.btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
 .btn-ghost:hover { color: var(--text); border-color: var(--border2); }
-.btn-accent {
-  background: var(--accent);
-  color: #0E0E0F;
-}
+.btn-accent { background: var(--accent); color: #0E0E0F; }
 .btn-accent:hover { background: var(--accent2); }
 .btn-accent:disabled { opacity: 0.35; cursor: not-allowed; }
-.btn-export {
-  background: var(--accent-bg);
-  color: var(--accent);
-  border: 1px solid var(--accent-border);
-}
+.btn-export { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
 .btn-export:hover { background: rgba(200,251,79,0.14); }
 .btn-export:disabled { opacity: 0.35; cursor: not-allowed; }
 
@@ -210,376 +90,94 @@ header {
 .content { display: flex; flex-direction: column; overflow: hidden; }
 
 /* FILTER BAR */
-.filter-bar {
-  padding: 0 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-shrink: 0;
-  gap: 16px;
-  height: 48px;
-}
-
-.filter-tabs { display: flex; align-items: center; gap: 2px; overflow-x: auto; }
-.filter-tab {
-  padding: 5px 12px;
-  border-radius: 6px;
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-family: var(--body);
-  font-size: 13px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  transition: all 0.12s;
-}
+.filter-bar { padding: 0 24px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 16px; height: 48px; }
+.filter-tabs { display: flex; align-items: center; gap: 2px; overflow-x: auto; flex: 1; }
+.filter-tab { padding: 5px 12px; border-radius: 6px; background: transparent; border: none; color: var(--muted); font-family: var(--body); font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; transition: all 0.12s; }
 .filter-tab:hover { color: var(--text); background: var(--surface2); }
 .filter-tab.active { color: var(--accent); background: var(--accent-bg); }
-.filter-badge {
-  font-family: var(--mono);
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: var(--surface3);
-  color: var(--muted);
-}
+.filter-badge { font-family: var(--mono); font-size: 10px; padding: 1px 6px; border-radius: 10px; background: var(--surface3); color: var(--muted); }
 .filter-tab.active .filter-badge { background: rgba(200,251,79,0.15); color: var(--accent); }
-
 .filter-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-
 .view-toggle { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; }
-.view-btn {
-  padding: 4px 9px;
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  border-radius: 5px;
-  font-size: 14px;
-  transition: all 0.12s;
-}
+.view-btn { padding: 4px 9px; border: none; background: transparent; color: var(--muted); cursor: pointer; border-radius: 5px; font-size: 14px; transition: all 0.12s; }
 .view-btn.active { background: var(--surface3); color: var(--text); }
-
-.select-all-btn {
-  font-size: 12px;
-  color: var(--muted);
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-family: var(--body);
-  padding: 4px 8px;
-  border-radius: 6px;
-}
+.select-all-btn { font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; font-family: var(--body); padding: 4px 8px; border-radius: 6px; }
 .select-all-btn:hover { color: var(--text); background: var(--surface2); }
 
 /* FILE GRID */
-.file-grid {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
-  padding-bottom: 80px;
-}
-
-.grid-layout {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 12px;
-}
+.file-grid { flex: 1; overflow-y: auto; padding: 20px 24px; padding-bottom: 80px; }
+.grid-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; }
 .list-layout { display: flex; flex-direction: column; gap: 6px; }
 
 /* FILE CARD */
-.file-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  transition: border-color 0.15s;
-  position: relative;
-  cursor: pointer;
-  user-select: none;
-}
+.file-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: border-color 0.15s; position: relative; cursor: pointer; user-select: none; }
 .file-card:hover { border-color: var(--border2); }
-.file-card.selected { border-color: var(--accent); background: #161618; }
-.file-card.selected::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--accent-bg);
-  pointer-events: none;
-}
-
-.card-check {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  width: 20px; height: 20px;
-  background: var(--surface3);
-  border: 1.5px solid var(--border2);
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity 0.12s;
-}
+.file-card.selected { border-color: var(--accent); }
+.file-card.selected::after { content: ''; position: absolute; inset: 0; background: var(--accent-bg); pointer-events: none; }
+.card-check { position: absolute; top: 8px; left: 8px; width: 20px; height: 20px; background: var(--surface3); border: 1.5px solid var(--border2); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; z-index: 2; opacity: 0; transition: opacity 0.12s; }
 .file-card:hover .card-check, .file-card.selected .card-check { opacity: 1; }
 .file-card.selected .card-check { background: var(--accent); border-color: var(--accent); color: #0E0E0F; }
-
-.card-delete {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px; height: 24px;
-  background: rgba(14,14,15,0.85);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-  backdrop-filter: blur(4px);
-  transition: all 0.12s;
-  z-index: 3;
-}
+.card-delete { position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; background: rgba(14,14,15,0.85); border: 1px solid var(--border); border-radius: 6px; display: none; align-items: center; justify-content: center; cursor: pointer; color: var(--muted); font-size: 12px; backdrop-filter: blur(4px); transition: all 0.12s; z-index: 3; }
 .file-card:hover .card-delete { display: flex; }
 .card-delete:hover { background: var(--red); border-color: var(--red); color: white; }
-
-.card-preview {
-  width: 100%;
-  aspect-ratio: 4/3;
-  background: var(--surface2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 28px;
-  color: var(--muted2);
-  overflow: hidden;
-}
+.card-preview { width: 100%; aspect-ratio: 4/3; background: var(--surface2); display: flex; align-items: center; justify-content: center; font-size: 28px; color: var(--muted2); overflow: hidden; }
 .card-preview img, .card-preview video { width: 100%; height: 100%; object-fit: cover; }
-
 .card-body { padding: 10px 11px; }
-.card-filename {
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 7px;
-  color: var(--text);
-}
+.card-filename { font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 7px; color: var(--text); }
 .card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
-
-/* TAGS */
-.tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  padding: 3px 8px;
-  border-radius: 20px;
-  font-weight: 500;
-  letter-spacing: 0.02em;
-  cursor: default;
-}
+.tag { font-family: var(--mono); font-size: 10px; padding: 3px 8px; border-radius: 20px; font-weight: 500; letter-spacing: 0.02em; }
 .tag-client { background: rgba(91,156,246,0.12); color: #5B9CF6; }
 .tag-type { background: rgba(200,251,79,0.1); color: var(--accent); }
 .tag-unset { background: var(--surface3); color: var(--muted2); border: 1px dashed var(--border2); }
 
 /* FILE ROW */
-.file-row {
-  display: grid;
-  grid-template-columns: 24px 36px 1fr auto auto auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: border-color 0.12s;
-  user-select: none;
-}
+.file-row { display: grid; grid-template-columns: 24px 36px 1fr auto auto auto; align-items: center; gap: 10px; padding: 10px 12px; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); cursor: pointer; transition: border-color 0.12s; user-select: none; }
 .file-row:hover { border-color: var(--border2); }
 .file-row.selected { border-color: var(--accent); background: var(--accent-bg); }
-
-.row-check {
-  width: 18px; height: 18px;
-  background: var(--surface3);
-  border: 1.5px solid var(--border2);
-  border-radius: 5px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px;
-  flex-shrink: 0;
-}
+.row-check { width: 18px; height: 18px; background: var(--surface3); border: 1.5px solid var(--border2); border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; }
 .file-row.selected .row-check { background: var(--accent); border-color: var(--accent); color: #0E0E0F; }
-
-.row-icon {
-  width: 36px; height: 36px;
-  background: var(--surface2);
-  border-radius: 8px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 15px;
-  flex-shrink: 0;
-}
+.row-icon { width: 36px; height: 36px; background: var(--surface2); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
 .row-name { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row-meta { font-size: 11px; color: var(--muted); margin-top: 1px; font-family: var(--mono); }
-.row-delete {
-  width: 28px; height: 28px;
-  background: transparent;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  color: var(--muted2);
-  font-size: 13px;
-  transition: all 0.12s;
-  flex-shrink: 0;
-}
+.row-delete { width: 28px; height: 28px; background: transparent; border: 1px solid transparent; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--muted2); font-size: 13px; transition: all 0.12s; flex-shrink: 0; }
 .row-delete:hover { background: rgba(255,87,87,0.1); border-color: var(--red); color: var(--red); }
 
 /* EMPTY STATE */
-.empty-state {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  color: var(--muted);
-  padding: 60px 40px;
-  text-align: center;
-}
+.empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: var(--muted); padding: 60px 40px; text-align: center; }
 .empty-icon { font-size: 36px; color: var(--muted2); }
 .empty-state h3 { font-family: var(--display); font-size: 15px; font-weight: 600; color: var(--text); }
 .empty-state p { font-size: 13px; line-height: 1.6; max-width: 240px; }
 
 /* FLOATING ACTION BAR */
-.action-bar {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(100px);
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  border-radius: 14px;
-  padding: 10px 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  z-index: 150;
-  transition: transform 0.2s ease;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-  backdrop-filter: blur(12px);
-  white-space: nowrap;
-}
+.action-bar { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: var(--surface2); border: 1px solid var(--border2); border-radius: 14px; padding: 10px 14px; display: flex; align-items: center; gap: 10px; z-index: 150; transition: transform 0.2s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.5); backdrop-filter: blur(12px); white-space: nowrap; }
 .action-bar.visible { transform: translateX(-50%) translateY(0); }
-
-.action-bar-count {
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--accent);
-  padding-right: 10px;
-  border-right: 1px solid var(--border2);
-}
-
-.action-select {
-  background: var(--surface3);
-  border: 1px solid var(--border);
-  color: var(--text);
-  padding: 7px 10px;
-  border-radius: 8px;
-  font-family: var(--body);
-  font-size: 13px;
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888884' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  padding-right: 26px;
-}
+.action-bar-count { font-family: var(--mono); font-size: 12px; color: var(--accent); padding-right: 10px; border-right: 1px solid var(--border2); }
+.action-select { background: var(--surface3); border: 1px solid var(--border); color: var(--text); padding: 7px 26px 7px 10px; border-radius: 8px; font-family: var(--body); font-size: 13px; outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888884' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
 .action-select:focus { border-color: var(--accent); }
-.action-select option { background: var(--surface2); }
-
-.action-bar-apply {
-  padding: 7px 14px;
-  background: var(--accent);
-  color: #0E0E0F;
-  border: none;
-  border-radius: 8px;
-  font-family: var(--body);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.12s;
-}
+.action-bar-apply { padding: 7px 14px; background: var(--accent); color: #0E0E0F; border: none; border-radius: 8px; font-family: var(--body); font-size: 13px; font-weight: 600; cursor: pointer; transition: background 0.12s; }
 .action-bar-apply:hover { background: var(--accent2); }
-
-.action-bar-clear {
-  background: none;
-  border: none;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 13px;
-  padding: 4px 6px;
-  border-radius: 6px;
-}
+.action-bar-delete-btn { padding: 7px 14px; background: rgba(255,87,87,0.1); color: var(--red); border: 1px solid rgba(255,87,87,0.3); border-radius: 8px; font-family: var(--body); font-size: 13px; cursor: pointer; }
+.action-bar-clear { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 13px; padding: 4px 6px; border-radius: 6px; }
 .action-bar-clear:hover { color: var(--text); }
 
-/* EXPORT MODAL */
-.modal-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,0.7);
-  z-index: 200;
-  display: none;
-  align-items: center;
-  justify-content: center;
-}
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; display: none; align-items: center; justify-content: center; }
 .modal-overlay.open { display: flex; }
-.modal {
-  background: var(--surface);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius-lg);
-  padding: 28px;
-  width: 420px;
-  max-width: 95vw;
-}
+.modal { background: var(--surface); border: 1px solid var(--border2); border-radius: var(--radius-lg); padding: 28px; width: 420px; max-width: 95vw; }
 .modal h2 { font-family: var(--display); font-size: 20px; font-weight: 700; margin-bottom: 6px; }
 .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
-
 .stat-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 20px; }
 .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
 .stat-label { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-bottom: 3px; }
 .stat-val { font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--accent); }
-
 .modal-actions { display: flex; gap: 10px; }
 .modal-actions .btn { flex: 1; justify-content: center; }
 
 /* NOTIFY */
-.notify {
-  position: fixed;
-  bottom: 20px; left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 10px 18px;
-  font-size: 13px;
-  color: var(--text);
-  display: flex; align-items: center; gap: 8px;
-  z-index: 300;
-  transition: transform 0.2s ease;
-  white-space: nowrap;
-  pointer-events: none;
-}
+.notify { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(80px); background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 10px 18px; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; z-index: 300; transition: transform 0.2s ease; white-space: nowrap; pointer-events: none; }
 .notify.show { transform: translateX(-50%) translateY(0); }
 .notify-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
 
-/* SCROLLBAR */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
@@ -594,20 +192,19 @@ header {
     delivr
   </div>
   <div class="header-actions">
-    <div class="count-pill" id="count-pill"><span id="total-count">0</span> files</div>
+    <div class="count-pill"><span class="live-dot"></span><span id="total-count">0</span> files</div>
     <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>↓ Export ZIP</button>
   </div>
 </header>
 
 <div class="main">
-
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="sidebar-section">
       <div class="sidebar-label">Upload files</div>
       <div class="dropzone" id="dropzone" onclick="document.getElementById('file-input').click()">
         <span class="dropzone-icon">↑</span>
-        <p><strong>Drop files here</strong><br>or click to browse<br><span style="font-size:11px;margin-top:4px;display:block;color:var(--muted2)">Images, video, PDF, fonts, any file</span></p>
+        <p><strong>Drop files here</strong><br>or click to browse<br>
+        <span style="font-size:11px;margin-top:4px;display:block;color:var(--muted2)">Images, video, PDF, fonts, any file</span></p>
       </div>
       <input type="file" id="file-input" multiple>
     </div>
@@ -622,7 +219,6 @@ header {
     </div>
   </aside>
 
-  <!-- CONTENT -->
   <div class="content">
     <div class="filter-bar">
       <div class="filter-tabs" id="filter-tabs">
@@ -636,45 +232,28 @@ header {
       <div class="filter-right">
         <button class="select-all-btn" id="select-all-btn" onclick="toggleSelectAll()" style="display:none">Select all</button>
         <div class="view-toggle">
-          <button class="view-btn active" id="grid-btn" onclick="setView('grid')" title="Grid">⊞</button>
-          <button class="view-btn" id="list-btn" onclick="setView('list')" title="List">☰</button>
+          <button class="view-btn active" id="grid-btn" onclick="setView('grid')">⊞</button>
+          <button class="view-btn" id="list-btn" onclick="setView('list')">☰</button>
         </div>
       </div>
     </div>
-
-    <div class="file-grid" id="file-grid">
-      <div class="empty-state" id="empty-state">
-        <div class="empty-icon">◫</div>
-        <h3>No files yet</h3>
-        <p>Drop your portfolio assets into the sidebar. Then select files and tag them in bulk.</p>
-      </div>
-    </div>
+    <div class="file-grid" id="file-grid"></div>
   </div>
-
 </div>
 </div>
 
 <!-- FLOATING ACTION BAR -->
 <div class="action-bar" id="action-bar">
   <div class="action-bar-count" id="action-bar-count">0 selected</div>
-  <select class="action-select" id="bar-client">
-    <option value="">Client…</option>
-  </select>
+  <select class="action-select" id="bar-client"><option value="">Client…</option></select>
   <select class="action-select" id="bar-type">
     <option value="">Type…</option>
-    <option>Graphic Design</option>
-    <option>Motion</option>
-    <option>Web Design</option>
-    <option>UI / UX</option>
-    <option>Branding</option>
-    <option>Photography</option>
-    <option>Illustration</option>
-    <option>3D / CGI</option>
-    <option>Copywriting</option>
-    <option>Other</option>
+    <option>Graphic Design</option><option>Motion</option><option>Web Design</option>
+    <option>UI / UX</option><option>Branding</option><option>Photography</option>
+    <option>Illustration</option><option>3D / CGI</option><option>Copywriting</option><option>Other</option>
   </select>
   <button class="action-bar-apply" id="action-bar-apply" onclick="applyBulkTags()">Apply</button>
-  <button class="action-bar-delete" id="action-bar-delete" onclick="deleteSelected()" style="padding:7px 14px;background:rgba(255,87,87,0.1);color:var(--red);border:1px solid rgba(255,87,87,0.3);border-radius:8px;font-family:var(--body);font-size:13px;cursor:pointer;display:none">Delete</button>
+  <button class="action-bar-delete-btn" id="action-bar-delete-btn" onclick="deleteSelected()" style="display:none">Delete</button>
   <button class="action-bar-clear" id="action-bar-clear" onclick="clearSelection()">✕</button>
 </div>
 
@@ -682,7 +261,7 @@ header {
 <div class="modal-overlay" id="export-modal">
   <div class="modal">
     <h2>Export for developer</h2>
-    <p class="modal-sub">Downloads a ZIP with all files + <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">manifest.json</code> for auto-categorization.</p>
+    <p class="modal-sub">Downloads a ZIP with all files + <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">manifest.json</code>.</p>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-label">Total files</div><div class="stat-val" id="exp-total">0</div></div>
       <div class="stat-box"><div class="stat-label">Untagged</div><div class="stat-val" id="exp-untagged" style="color:var(--red)">0</div></div>
@@ -694,34 +273,34 @@ header {
   </div>
 </div>
 
-<!-- NOTIFY -->
-<div class="notify" id="notify">
-  <div class="notify-dot"></div>
-  <span id="notify-msg">Done</span>
-</div>
+<div class="notify" id="notify"><div class="notify-dot"></div><span id="notify-msg">Done</span></div>
 
 <script>
+// ── CONFIG ─────────────────────────────────────────────
 const SUPABASE_URL = 'https://jtyecjkdytklduivybah.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp0eWVjamtkeXRrbGR1aXZ5YmFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3MzQ1MjgsImV4cCI6MjA5NjMxMDUyOH0.DPMjU17YvBF0E1DDtKopzPkkRnQc63MQ4wYpaM013D0';
+const BUCKET = 'delivr';
+const LOGO_BASE = `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/logos/`;
+const KNOWN_LOGOS = ['Altura','BAYC','Bruce Lee','Chain','Degen','Dreamworks','Sandbox','Sixr','Sport.fun','Thrust','WSJ','Whop','Zama'];
+const WORK_TYPES_SLUG = { 'Graphic Design':'graphic-design','Motion':'motion','Web Design':'web-design','UI / UX':'ui-ux','Branding':'branding','Photography':'photography','Illustration':'illustration','3D / CGI':'3d-cgi','Copywriting':'copywriting','Other':'other' };
+
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-const WORK_TYPES_SLUG = {
-  'Graphic Design':'graphic-design','Motion':'motion','Web Design':'web-design',
-  'UI / UX':'ui-ux','Branding':'branding','Photography':'photography',
-  'Illustration':'illustration','3D / CGI':'3d-cgi','Copywriting':'copywriting','Other':'other'
-};
-
-let files = [];
-let clients = [];
+// ── STATE ──────────────────────────────────────────────
+let files    = [];   // rows from `files` table
+let clients  = [];   // rows from `clients` table
 let selected = new Set();
+let tagHistory = [];
 let currentFilter = 'all';
 let viewMode = 'grid';
-let tagHistory = [];
+let localFiles = new Map(); // name → File object (for ZIPping)
 
+// ── HELPERS ────────────────────────────────────────────
 function uid() { return Math.random().toString(36).slice(2,9); }
+function fmtSize(s) { return s < 1048576 ? (s/1024).toFixed(0)+' KB' : (s/1048576).toFixed(1)+' MB'; }
 
 function fileIcon(name) {
-  const ext = name.split('.').pop().toLowerCase();
+  const ext = (name.split('.').pop()||'').toLowerCase();
   if (['jpg','jpeg','png','gif','webp','svg','avif'].includes(ext)) return '🖼';
   if (['mp4','mov','avi','webm','mkv'].includes(ext)) return '🎬';
   if (['pdf'].includes(ext)) return '📄';
@@ -734,107 +313,248 @@ function fileIcon(name) {
 }
 function isImage(n) { return /\.(jpg|jpeg|png|gif|webp|svg|avif)$/i.test(n); }
 function isVideo(n) { return /\.(mp4|mov|webm|avi)$/i.test(n); }
-function fmtSize(s) { return s < 1048576 ? (s/1024).toFixed(0)+' KB' : (s/1048576).toFixed(1)+' MB'; }
 
-// ── FILES ──────────────────────────────────────────────
-
-async function handleFiles(fileList) {
-  const newEntries = Array.from(fileList).map(file => {
-    const entry = { id: uid(), file, name: file.name, size: file.size, client:'', type:'', notes:'', url: null };
-    if (isImage(file.name) || isVideo(file.name)) entry.url = URL.createObjectURL(file);
-    files.push(entry);
-    return entry;
-  });
-  render();
-  notify(`Uploading ${newEntries.length} file${newEntries.length > 1 ? 's' : ''}…`);
-  for (const entry of newEntries) {
-    const { error } = await sb.storage.from('delivr').upload(entry.name, entry.file, { upsert: true });
-    if (error) notify(`Failed: ${entry.name}`);
-  }
-  await saveManifest();
-  notify(`${newEntries.length} file${newEntries.length > 1 ? 's' : ''} uploaded`);
+function publicUrl(filename) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(filename)}`;
 }
 
+function clientLogoUrl(name) {
+  const match = KNOWN_LOGOS.find(k => k.toLowerCase() === name.toLowerCase());
+  return match ? LOGO_BASE + encodeURIComponent(match + '.png') : null;
+}
+
+function clientAvatar(c) {
+  if (c.logo) return `<img src="${c.logo}" class="client-avatar" alt="${c.name}">`;
+  return `<div class="client-avatar-dot" style="background:${c.color||'#5B9CF6'}"></div>`;
+}
+
+function notify(msg) {
+  const el = document.getElementById('notify');
+  document.getElementById('notify-msg').textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ── DATABASE: CLIENTS ──────────────────────────────────
+async function loadClients() {
+  const { data, error } = await sb.from('clients').select('*').order('created_at');
+  if (error) { console.error('loadClients:', error); return; }
+  clients = data;
+  renderSidebar();
+  renderFilterTabs();
+}
+
+async function addClient() {
+  const input = document.getElementById('new-client-input');
+  const name = input.value.trim();
+  if (!name) return;
+  if (clients.find(c => c.name.toLowerCase() === name.toLowerCase())) { notify('Client already exists'); return; }
+  const logo = clientLogoUrl(name);
+  const { error } = await sb.from('clients').insert({ name, color: '#5B9CF6', logo });
+  if (error) { notify('Failed to add client'); console.error(error); return; }
+  input.value = '';
+  // realtime will update UI
+}
+
+async function updateClientColor(id, color) {
+  await sb.from('clients').update({ color }).eq('id', id);
+  // realtime updates UI
+}
+
+async function removeClient(id, name) {
+  if (!confirm(`Remove client "${name}"? Files tagged with this client will be untagged.`)) return;
+  // untag files
+  await sb.from('files').update({ client: null }).eq('client', name);
+  await sb.from('clients').delete().eq('id', id);
+  // realtime updates UI
+}
+
+// ── DATABASE: FILES ────────────────────────────────────
+async function loadFiles() {
+  const { data, error } = await sb.from('files').select('*').order('created_at');
+  if (error) { console.error('loadFiles:', error); return; }
+  files = data;
+  render();
+}
+
+async function handleFiles(fileList) {
+  const arr = Array.from(fileList);
+  notify(`Uploading ${arr.length} file${arr.length > 1 ? 's' : ''}…`);
+
+  for (const file of arr) {
+    // upload to storage
+    const { error: storageErr } = await sb.storage.from(BUCKET).upload(file.name, file, { upsert: true });
+    if (storageErr) { notify(`Storage failed: ${file.name}`); console.error(storageErr); continue; }
+
+    // insert into database
+    const { error: dbErr } = await sb.from('files').upsert({
+      name: file.name,
+      size_bytes: file.size,
+      client: null,
+      work_type: null,
+      notes: null
+    }, { onConflict: 'name' });
+    if (dbErr) { notify(`DB failed: ${file.name}`); console.error(dbErr); continue; }
+
+    // keep local File reference for ZIP export
+    localFiles.set(file.name, file);
+  }
+  notify(`${arr.length} file${arr.length > 1 ? 's' : ''} uploaded`);
+  // realtime will update UI
+}
+
+async function updateFileTags(id, client, work_type) {
+  const { error } = await sb.from('files').update({ client: client||null, work_type: work_type||null }).eq('id', id);
+  if (error) console.error('updateFileTags:', error);
+  // realtime updates UI
+}
+
+async function deleteFileById(id, name) {
+  await sb.from('files').delete().eq('id', id);
+  await sb.storage.from(BUCKET).remove([name]);
+  localFiles.delete(name);
+  // realtime updates UI
+}
+
+// ── UPLOAD HANDLERS ────────────────────────────────────
 const dropzone = document.getElementById('dropzone');
 dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag-over'); });
 dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
 dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
-document.getElementById('file-input').addEventListener('change', e => handleFiles(e.target.files));
+document.getElementById('file-input').addEventListener('change', e => { handleFiles(e.target.files); e.target.value = ''; });
+document.getElementById('new-client-input').addEventListener('keydown', e => { if (e.key === 'Enter') addClient(); });
 
-async function deleteFile(e, id) {
-  e.stopPropagation();
-  const f = files.find(x => x.id === id);
-  if (!confirm(`Delete "${f.name}"?`)) return;
-  files = files.filter(x => x.id !== id);
-  selected.delete(id);
-  await sb.storage.from('delivr').remove([f.name]);
-  await saveManifest();
-  render();
+// ── SELECTION ──────────────────────────────────────────
+function toggleSelect(id) {
+  if (selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  renderActionBar();
+  renderCards();
+}
+
+function toggleSelectAll() {
+  const visible = filteredFiles();
+  const allSel = visible.every(f => selected.has(f.id));
+  if (allSel) visible.forEach(f => selected.delete(f.id));
+  else visible.forEach(f => selected.add(f.id));
+  renderActionBar();
+  renderCards();
+}
+
+function clearSelection() {
+  selected.clear();
+  renderActionBar();
+  renderCards();
+}
+
+function renderActionBar() {
+  const count = selected.size;
+  const bar = document.getElementById('action-bar');
+  bar.classList.toggle('visible', count > 0);
+  if (!count) return;
+
+  document.getElementById('action-bar-count').textContent = `${count} selected`;
+  document.getElementById('action-bar-apply').style.display = count > 1 ? '' : 'none';
+  document.getElementById('action-bar-delete-btn').style.display = count > 1 ? '' : 'none';
+  document.getElementById('action-bar-clear').textContent = count > 1 ? 'Deselect all' : '✕';
+
+  if (count === 1) {
+    const f = files.find(x => selected.has(x.id));
+    if (f) {
+      document.getElementById('bar-client').value = f.client || '';
+      document.getElementById('bar-type').value = f.work_type || '';
+    }
+  }
+
+  document.getElementById('export-btn').textContent = count > 0 ? `↓ Export selected (${count})` : '↓ Export ZIP';
+}
+
+async function applyBulkTags() {
+  const client = document.getElementById('bar-client').value || null;
+  const work_type = document.getElementById('bar-type').value || null;
+  const ids = Array.from(selected);
+  snapshotTags();
+  const { error } = await sb.from('files').update({ client, work_type }).in('id', ids);
+  if (error) { notify('Failed to apply tags'); console.error(error); return; }
+  notify(`Tags applied to ${ids.length} file${ids.length > 1 ? 's' : ''}`);
+  // realtime updates UI
+}
+
+async function applySingleTag() {
+  if (selected.size !== 1) return;
+  const id = Array.from(selected)[0];
+  const client = document.getElementById('bar-client').value || null;
+  const work_type = document.getElementById('bar-type').value || null;
+  snapshotTags();
+  await sb.from('files').update({ client, work_type }).eq('id', id);
+  // realtime updates UI
 }
 
 async function deleteSelected() {
   const count = selected.size;
   if (!confirm(`Delete ${count} file${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
   const toDelete = files.filter(f => selected.has(f.id));
-  files = files.filter(f => !selected.has(f.id));
   selected.clear();
-  await sb.storage.from('delivr').remove(toDelete.map(f => f.name));
-  await saveManifest();
-  render();
+  for (const f of toDelete) await deleteFileById(f.id, f.name);
   notify(`${count} file${count > 1 ? 's' : ''} deleted`);
 }
 
-// ── CLIENTS ────────────────────────────────────────────
-
-const LOGO_BASE = `${SUPABASE_URL}/storage/v1/object/public/delivr/logos/`;
-
-function clientLogoUrl(name) {
-  // check known uploaded logos (filename matches client name + .png)
-  const known = ['Altura','BAYC','Bruce Lee','Chain','Degen','Dreamworks','Sandbox','Sixr','Sport.fun','Thrust','WSJ','Whop','Zama'];
-  const match = known.find(k => k.toLowerCase() === name.toLowerCase());
-  return match ? LOGO_BASE + encodeURIComponent(match + '.png') : null;
+// ── UNDO ───────────────────────────────────────────────
+function snapshotTags() {
+  tagHistory.push(files.map(f => ({ id: f.id, client: f.client, work_type: f.work_type })));
+  if (tagHistory.length > 50) tagHistory.shift();
 }
 
-function clientAvatar(c) {
-  const logo = c.logo || clientLogoUrl(c.name);
-  if (logo) return `<img src="${logo}" class="client-dot" style="border-radius:50%;object-fit:cover">`;
-  return `<div class="client-dot-plain" style="background:${c.color || '#5B9CF6'}"></div>`;
+async function undoTags() {
+  if (!tagHistory.length) return;
+  const snap = tagHistory.pop();
+  for (const s of snap) {
+    await sb.from('files').update({ client: s.client, work_type: s.work_type }).eq('id', s.id);
+  }
+  notify('Undo — tags restored');
 }
 
-async function saveClients() {
-  const blob = new Blob([JSON.stringify(clients)], { type: 'application/json' });
-  await sb.storage.from('delivr').upload('clients.json', blob, { upsert: true });
+document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoTags(); } });
+
+// ── SINGLE-SELECT AUTO-APPLY ───────────────────────────
+document.getElementById('bar-client').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
+document.getElementById('bar-type').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
+
+// ── FILTERS ────────────────────────────────────────────
+function setFilter(filter, btn) {
+  currentFilter = filter;
+  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selected.clear();
+  renderFileArea();
+  renderActionBar();
 }
 
-async function addClient() {
-  const input = document.getElementById('new-client-input');
-  const val = input.value.trim();
-  if (!val || clients.find(c => c.name === val)) return;
-  clients.push({ name: val, color: '#5B9CF6', logo: clientLogoUrl(val) });
-  input.value = '';
-  render();
-  await saveClients();
-  notify(`Client "${val}" added`);
+function filteredFiles() {
+  if (currentFilter === 'all') return files;
+  if (currentFilter === 'untagged') return files.filter(f => !f.client || !f.work_type);
+  if (currentFilter.startsWith('client:')) return files.filter(f => f.client === currentFilter.slice(7));
+  return files;
 }
 
-async function updateClientColor(name, color) {
-  const c = clients.find(x => x.name === name);
-  if (!c) return;
-  c.color = color;
-  render();
-  await saveClients();
+function setView(mode) {
+  viewMode = mode;
+  document.getElementById('grid-btn').classList.toggle('active', mode === 'grid');
+  document.getElementById('list-btn').classList.toggle('active', mode === 'list');
+  renderFileArea();
 }
 
-document.getElementById('new-client-input').addEventListener('keydown', e => { if (e.key === 'Enter') addClient(); });
-
-async function removeClient(name) {
-  clients = clients.filter(c => c.name !== name);
-  files.forEach(f => { if (f.client === name) f.client = ''; });
-  render();
-  await saveClients();
+// ── RENDER ─────────────────────────────────────────────
+function render() {
+  renderSidebar();
+  renderFilterTabs();
+  renderFileArea();
+  document.getElementById('total-count').textContent = files.length;
+  document.getElementById('export-btn').disabled = files.length === 0;
+  document.getElementById('select-all-btn').style.display = files.length ? '' : 'none';
 }
 
-function renderClientList() {
+function renderSidebar() {
   const list = document.getElementById('client-list');
   list.innerHTML = '';
   clients.forEach(c => {
@@ -844,43 +564,32 @@ function renderClientList() {
     item.innerHTML = `
       <div class="client-item-name">
         ${clientAvatar(c)}
-        <span style="font-size:13px">${c.name}</span>
+        <span>${c.name}</span>
       </div>
-      <div style="display:flex;align-items:center;gap:6px">
+      <div class="client-actions">
         <span class="client-count">${count}</span>
         ${!c.logo ? `<input type="color" value="${c.color||'#5B9CF6'}" title="Change color"
-          style="width:20px;height:20px;padding:1px;border-radius:4px;border:1px solid var(--border);background:none;cursor:pointer;flex-shrink:0"
-          onchange="updateClientColor('${c.name}', this.value)">` : ''}
-        <button class="client-delete" onclick="removeClient('${c.name}')" title="Remove">✕</button>
+          style="width:18px;height:18px;padding:1px;border-radius:4px;border:1px solid var(--border);background:none;cursor:pointer;flex-shrink:0"
+          onchange="updateClientColor('${c.id}', this.value)">` : ''}
+        <button class="client-delete" onclick="removeClient('${c.id}','${c.name.replace(/'/g,"\\'")}')">✕</button>
       </div>
     `;
     list.appendChild(item);
   });
 
-  // action bar client select
+  // update action bar client dropdown
   const barClient = document.getElementById('bar-client');
   const cur = barClient.value;
   barClient.innerHTML = '<option value="">Client…</option>' + clients.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
   if (cur) barClient.value = cur;
 }
 
-// ── FILTERS ────────────────────────────────────────────
-
-function setFilter(filter, btn) {
-  currentFilter = filter;
-  document.querySelectorAll('.filter-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  selected.clear();
-  render();
-}
-
 function renderFilterTabs() {
   const tabs = document.getElementById('filter-tabs');
-  // remove client tabs
   Array.from(tabs.querySelectorAll('[data-client]')).forEach(el => el.remove());
 
   document.getElementById('fb-all').textContent = files.length;
-  document.getElementById('fb-untagged').textContent = files.filter(f => !f.client || !f.type).length;
+  document.getElementById('fb-untagged').textContent = files.filter(f => !f.client || !f.work_type).length;
 
   clients.forEach(c => {
     const count = files.filter(f => f.client === c.name).length;
@@ -894,205 +603,16 @@ function renderFilterTabs() {
   });
 }
 
-function filteredFiles() {
-  if (currentFilter === 'all') return files;
-  if (currentFilter === 'untagged') return files.filter(f => !f.client || !f.type);
-  if (currentFilter.startsWith('client:')) return files.filter(f => f.client === currentFilter.slice(7));
-  return files;
-}
-
-// ── SELECTION ──────────────────────────────────────────
-
-function toggleSelect(id) {
-  if (selected.has(id)) selected.delete(id);
-  else selected.add(id);
-  renderActionBar();
-  renderCards();
-}
-
-function toggleSelectAll() {
-  const visible = filteredFiles();
-  const allSelected = visible.every(f => selected.has(f.id));
-  if (allSelected) visible.forEach(f => selected.delete(f.id));
-  else visible.forEach(f => selected.add(f.id));
-  renderActionBar();
-  renderCards();
-}
-
-function clearSelection() {
-  selected.clear();
-  renderActionBar();
-  renderCards();
-}
-
-function renderActionBar() {
-  const bar = document.getElementById('action-bar');
-  const count = selected.size;
-  bar.classList.toggle('visible', count > 0);
-  if (count === 0) return;
-
-  document.getElementById('action-bar-count').textContent = `${count} selected`;
-
-  // single selection: pre-fill dropdowns with current file values
-  if (count === 1) {
-    const f = files.find(x => selected.has(x.id));
-    if (f) {
-      document.getElementById('bar-client').value = f.client || '';
-      document.getElementById('bar-type').value = f.type || '';
-    }
-  }
-
-  // show Apply + Delete only for multi-select
-  document.getElementById('action-bar-apply').style.display = count > 1 ? '' : 'none';
-  document.getElementById('action-bar-delete').style.display = count > 1 ? '' : 'none';
-  // label deselect button
-  document.getElementById('action-bar-clear').textContent = count > 1 ? 'Deselect all' : '✕';
-  document.getElementById('action-bar-clear').style.padding = count > 1 ? '4px 10px' : '4px 6px';
-
-  // update export button label
-  document.getElementById('export-btn').textContent = count > 0 ? `↓ Export selected (${count})` : '↓ Export ZIP';
-}
-
-async function saveManifest() {
-  // fetch remote manifest and merge — never overwrite files we don't have locally
-  let remote = [];
-  try {
-    const { data } = await sb.storage.from('delivr').download('manifest.json');
-    if (data) remote = JSON.parse(await data.text()).files || [];
-  } catch(_) {}
-
-  // build a map of remote files, then apply local tag updates on top
-  const map = {};
-  remote.forEach(f => { map[f.filename] = f; });
-  files.forEach(f => {
-    if (map[f.name]) {
-      map[f.name].client = f.client || null;
-      map[f.name].client_slug = f.client ? f.client.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') : null;
-      map[f.name].work_type = f.type || null;
-      map[f.name].work_type_slug = f.type ? (WORK_TYPES_SLUG[f.type] || f.type.toLowerCase().replace(/\s+/g,'-')) : null;
-      map[f.name].notes = f.notes || null;
-    } else {
-      // new file not yet in remote
-      map[f.name] = {
-        filename: f.name, client: f.client||null,
-        client_slug: f.client ? f.client.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') : null,
-        work_type: f.type||null,
-        work_type_slug: f.type ? (WORK_TYPES_SLUG[f.type]||f.type.toLowerCase().replace(/\s+/g,'-')) : null,
-        notes: f.notes||null, size_bytes: f.size
-      };
-    }
-  });
-
-  const merged = { generated: new Date().toISOString(), total: Object.keys(map).length, files: Object.values(map) };
-  const blob = new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' });
-  await sb.storage.from('delivr').upload('manifest.json', blob, { upsert: true });
-}
-
-async function syncFromRemote() {
-  try {
-    const { data, error } = await sb.storage.from('delivr').download('manifest.json');
-    if (error || !data) return;
-    const manifest = JSON.parse(await data.text());
-    // merge remote into local — preserve local file objects, add missing ones
-    const localNames = new Set(files.map(f => f.name));
-    manifest.files.forEach(f => {
-      if (localNames.has(f.filename)) {
-        const local = files.find(x => x.name === f.filename);
-        local.client = f.client || '';
-        local.type = f.work_type || '';
-        local.notes = f.notes || '';
-      } else {
-        const { data: urlData } = sb.storage.from('delivr').getPublicUrl(f.filename);
-        files.push({ id: uid(), file: null, name: f.filename, size: f.size_bytes, client: f.client||'', type: f.work_type||'', notes: f.notes||'', url: urlData.publicUrl, remote: true });
-      }
-    });
-    // remove files that no longer exist in remote
-    const remoteNames = new Set(manifest.files.map(f => f.filename));
-    files = files.filter(f => !f.remote || remoteNames.has(f.name));
-    render();
-  } catch(_) {}
-}
-
-function snapshotTags() {
-  tagHistory.push(files.map(f => ({ id: f.id, client: f.client, type: f.type })));
-  if (tagHistory.length > 50) tagHistory.shift();
-}
-
-function undoTags() {
-  if (tagHistory.length === 0) return;
-  const snap = tagHistory.pop();
-  snap.forEach(s => {
-    const f = files.find(x => x.id === s.id);
-    if (f) { f.client = s.client; f.type = s.type; }
-  });
-  notify('Undo — tags restored');
-  render();
-}
-
-document.addEventListener('keydown', e => {
-  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoTags(); }
-});
-
-async function applyBulkTags() {
-  snapshotTags();
-  const client = document.getElementById('bar-client').value;
-  const type = document.getElementById('bar-type').value;
-  files.forEach(f => {
-    if (!selected.has(f.id)) return;
-    if (client) f.client = client;
-    if (type) f.type = type;
-  });
-  notify(`Tags applied to ${selected.size} file${selected.size > 1 ? 's' : ''}`);
-  render();
-  await saveManifest();
-}
-
-async function applySingleTag() {
-  if (selected.size !== 1) return;
-  snapshotTags();
-  const client = document.getElementById('bar-client').value;
-  const type = document.getElementById('bar-type').value;
-  const f = files.find(x => selected.has(x.id));
-  if (!f) return;
-  if (client !== undefined) f.client = client;
-  if (type !== undefined) f.type = type;
-  renderFileArea();
-  renderClientList();
-  renderFilterTabs();
-  await saveManifest();
-}
-
-// ── RENDER ─────────────────────────────────────────────
-
-function render() {
-  renderClientList();
-  renderFilterTabs();
-  renderFileArea();
-  updateHeader();
-}
-
-function updateHeader() {
-  const n = files.length;
-  document.getElementById('total-count').textContent = n;
-  document.getElementById('export-btn').disabled = n === 0;
-  document.getElementById('select-all-btn').style.display = n ? '' : 'none';
-}
-
 function renderFileArea() {
   const grid = document.getElementById('file-grid');
   const list = filteredFiles();
 
   if (files.length === 0) {
-    grid.innerHTML = '';
-    const empty = document.createElement('div');
-    empty.className = 'empty-state';
-    empty.innerHTML = '<div class="empty-icon">◫</div><h3>No files yet</h3><p>Drop your portfolio assets into the sidebar. Then select files and tag them in bulk.</p>';
-    grid.appendChild(empty);
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">◫</div><h3>No files yet</h3><p>Drop your portfolio assets into the sidebar to get started.</p></div>`;
     return;
   }
-
   if (list.length === 0) {
-    grid.innerHTML = '<div class="empty-state"><div class="empty-icon">◎</div><h3>No files here</h3><p>No files match this filter.</p></div>';
+    grid.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><h3>No files here</h3><p>No files match this filter.</p></div>`;
     return;
   }
 
@@ -1101,7 +621,6 @@ function renderFileArea() {
   list.forEach(f => wrap.appendChild(viewMode === 'grid' ? makeCard(f) : makeRow(f)));
   grid.innerHTML = '';
   grid.appendChild(wrap);
-  renderActionBar();
 }
 
 function renderCards() {
@@ -1118,22 +637,23 @@ function makeCard(f) {
   el.className = 'file-card' + (selected.has(f.id) ? ' selected' : '');
   el.dataset.id = f.id;
 
+  const url = publicUrl(f.name);
   let preview = '';
-  if (f.url && isImage(f.name)) preview = `<img src="${f.url}" alt="" loading="lazy">`;
-  else if (f.url && isVideo(f.name)) preview = `<video src="${f.url}" muted></video>`;
+  if (isImage(f.name)) preview = `<img src="${url}" alt="" loading="lazy">`;
+  else if (isVideo(f.name)) preview = `<video src="${url}" muted></video>`;
   else preview = fileIcon(f.name);
 
   const clientTag = f.client ? `<span class="tag tag-client">${f.client}</span>` : '<span class="tag tag-unset">no client</span>';
-  const typeTag = f.type ? `<span class="tag tag-type">${f.type}</span>` : '<span class="tag tag-unset">no type</span>';
+  const typeTag = f.work_type ? `<span class="tag tag-type">${f.work_type}</span>` : '<span class="tag tag-unset">no type</span>';
 
   el.innerHTML = `
-    <div class="card-check">${selected.has(f.id) ? '✓' : ''}</div>
+    <div class="card-check">${selected.has(f.id)?'✓':''}</div>
     <div class="card-preview">${preview}</div>
     <div class="card-body">
       <div class="card-filename" title="${f.name}">${f.name}</div>
       <div class="card-tags">${clientTag}${typeTag}</div>
     </div>
-    <button class="card-delete" onclick="deleteFile(event,'${f.id}')">✕</button>
+    <button class="card-delete" onclick="event.stopPropagation();if(confirm('Delete &quot;${f.name}&quot;?'))deleteFileById('${f.id}','${f.name}')">✕</button>
   `;
   el.addEventListener('click', () => toggleSelect(f.id));
   return el;
@@ -1145,54 +665,25 @@ function makeRow(f) {
   el.dataset.id = f.id;
 
   const clientTag = f.client ? `<span class="tag tag-client">${f.client}</span>` : '<span class="tag tag-unset">no client</span>';
-  const typeTag = f.type ? `<span class="tag tag-type">${f.type}</span>` : '<span class="tag tag-unset">no type</span>';
+  const typeTag = f.work_type ? `<span class="tag tag-type">${f.work_type}</span>` : '<span class="tag tag-unset">no type</span>';
 
   el.innerHTML = `
-    <div class="row-check">${selected.has(f.id) ? '✓' : ''}</div>
+    <div class="row-check">${selected.has(f.id)?'✓':''}</div>
     <div class="row-icon">${fileIcon(f.name)}</div>
-    <div>
-      <div class="row-name">${f.name}</div>
-      <div class="row-meta">${fmtSize(f.size)}</div>
-    </div>
+    <div><div class="row-name">${f.name}</div><div class="row-meta">${fmtSize(f.size_bytes||0)}</div></div>
     ${clientTag}
     ${typeTag}
-    <button class="row-delete" onclick="deleteFile(event,'${f.id}')">✕</button>
+    <button class="row-delete" onclick="event.stopPropagation();if(confirm('Delete &quot;${f.name}&quot;?'))deleteFileById('${f.id}','${f.name}')">✕</button>
   `;
   el.addEventListener('click', () => toggleSelect(f.id));
   return el;
 }
 
-function setView(mode) {
-  viewMode = mode;
-  document.getElementById('grid-btn').classList.toggle('active', mode === 'grid');
-  document.getElementById('list-btn').classList.toggle('active', mode === 'list');
-  renderFileArea();
-}
-
-// ── EXPORT ─────────────────────────────────────────────
-
-function buildManifest() {
-  const scope = selected.size > 0 ? files.filter(f => selected.has(f.id)) : files;
-  return {
-    generated: new Date().toISOString(),
-    total: scope.length,
-    files: scope.map((f, i) => ({
-      index: i + 1,
-      filename: f.name,
-      client: f.client || null,
-      client_slug: f.client ? f.client.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') : null,
-      work_type: f.type || null,
-      work_type_slug: f.type ? (WORK_TYPES_SLUG[f.type] || f.type.toLowerCase().replace(/\s+/g,'-')) : null,
-      notes: f.notes || null,
-      size_bytes: f.size,
-      path: f.client && f.type ? `${f.client.replace(/\s+/g,'-')}/${WORK_TYPES_SLUG[f.type]||'other'}/${f.name}` : f.name
-    }))
-  };
-}
-
+// ── EXPORT ZIP ─────────────────────────────────────────
 function openExport() {
-  document.getElementById('exp-total').textContent = files.length;
-  document.getElementById('exp-untagged').textContent = files.filter(f => !f.client || !f.type).length;
+  const scope = selected.size > 0 ? files.filter(f => selected.has(f.id)) : files;
+  document.getElementById('exp-total').textContent = scope.length;
+  document.getElementById('exp-untagged').textContent = scope.filter(f => !f.client || !f.work_type).length;
   document.getElementById('export-modal').classList.add('open');
 }
 function closeExport() { document.getElementById('export-modal').classList.remove('open'); }
@@ -1200,28 +691,53 @@ function closeExport() { document.getElementById('export-modal').classList.remov
 async function downloadZip() {
   const btn = document.getElementById('download-btn');
   btn.textContent = 'Packaging…'; btn.disabled = true;
-  const manifest = buildManifest();
+
+  const scope = selected.size > 0 ? files.filter(f => selected.has(f.id)) : files;
   const zip = new JSZip();
+
+  const manifest = {
+    generated: new Date().toISOString(),
+    total: scope.length,
+    files: scope.map(f => ({
+      filename: f.name,
+      client: f.client || null,
+      client_slug: f.client ? f.client.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') : null,
+      work_type: f.work_type || null,
+      work_type_slug: f.work_type ? (WORK_TYPES_SLUG[f.work_type]||f.work_type.toLowerCase().replace(/\s+/g,'-')) : null,
+      notes: f.notes || null,
+      size_bytes: f.size_bytes,
+      path: f.client && f.work_type ? `${f.client.replace(/\s+/g,'-')}/${WORK_TYPES_SLUG[f.work_type]||'other'}/${f.name}` : f.name
+    }))
+  };
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-  const scope = (selected.size > 0 ? files.filter(f => selected.has(f.id)) : files).filter(f => !f.remote);
+
   const folder = zip.folder('files');
-  for (const f of scope) folder.file(f.name, f.file);
+  for (const f of scope) {
+    if (localFiles.has(f.name)) {
+      folder.file(f.name, localFiles.get(f.name));
+    } else {
+      try {
+        const res = await fetch(publicUrl(f.name));
+        folder.file(f.name, await res.blob());
+      } catch(e) { console.warn('Could not fetch', f.name); }
+    }
+  }
+
   try {
-    const blob = await zip.generateAsync({type:'blob', compression:'STORE'});
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = `delivr-${new Date().toISOString().slice(0,10)}.zip`;
     a.click();
     notify('ZIP downloaded!');
     closeExport();
-  } catch(err) { notify('Export failed: ' + err.message); }
+  } catch(e) { notify('Export failed: ' + e.message); }
+
   btn.textContent = '↓ Download ZIP'; btn.disabled = false;
 }
 
-
 // ── DOWNLOAD VIEW ──────────────────────────────────────
-
-async function loadDelivery() {
+async function loadDownloadView() {
   document.querySelector('.app').style.display = 'none';
 
   const page = document.createElement('div');
@@ -1239,111 +755,98 @@ async function loadDelivery() {
   `;
   document.body.appendChild(page);
 
-  try {
-    const { data, error } = await sb.storage.from('delivr').download('manifest.json');
-    if (error) throw error;
-    const manifest = JSON.parse(await data.text());
+  const { data: filesData, error: fErr } = await sb.from('files').select('*').order('client').order('work_type').order('name');
+  const { data: clientsData } = await sb.from('clients').select('*');
+  if (fErr || !filesData) { document.getElementById('dl-sub').textContent = 'Could not load files.'; return; }
 
-    document.getElementById('dl-sub').textContent =
-      `${manifest.total} file${manifest.total !== 1 ? 's' : ''} · ${new Date(manifest.generated).toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'})}`;
+  const clientMap = {};
+  (clientsData||[]).forEach(c => { clientMap[c.name] = c; });
 
-    const groups = {};
-    manifest.files.forEach(f => {
-      const client = f.client || 'Untagged';
-      const type = f.work_type || 'Other';
-      if (!groups[client]) groups[client] = {};
-      if (!groups[client][type]) groups[client][type] = [];
-      groups[client][type].push(f);
-    });
+  document.getElementById('dl-sub').textContent = `${filesData.length} file${filesData.length !== 1 ? 's' : ''} ready to download`;
 
-    const content = document.getElementById('dl-content');
-    Object.entries(groups).forEach(([client, types]) => {
-      const clientSection = document.createElement('div');
-      clientSection.style.cssText = 'margin-bottom:40px';
-      clientSection.innerHTML = `<div style="font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px">
-        <div style="width:6px;height:6px;background:var(--blue);border-radius:50%"></div>${client}
-      </div>`;
+  const groups = {};
+  filesData.forEach(f => {
+    const client = f.client || 'Untagged';
+    const type = f.work_type || 'Other';
+    if (!groups[client]) groups[client] = {};
+    if (!groups[client][type]) groups[client][type] = [];
+    groups[client][type].push(f);
+  });
 
-      Object.entries(types).forEach(([type, typeFiles]) => {
-        const typeBlock = document.createElement('div');
-        typeBlock.style.cssText = 'margin-bottom:20px';
-        typeBlock.innerHTML = `<div style="font-size:11px;font-family:var(--mono);color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">${type} · ${typeFiles.length} file${typeFiles.length !== 1 ? 's' : ''}</div>`;
+  const content = document.getElementById('dl-content');
+  Object.entries(groups).forEach(([client, types]) => {
+    const c = clientMap[client];
+    const avatar = c ? (c.logo ? `<img src="${c.logo}" style="width:28px;height:28px;border-radius:50%;object-fit:cover">` : `<div style="width:10px;height:10px;border-radius:50%;background:${c.color||'#5B9CF6'}"></div>`) : '';
 
-        typeFiles.forEach(f => {
-          const { data: urlData } = sb.storage.from('delivr').getPublicUrl(f.filename);
-          const row = document.createElement('div');
-          row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:6px';
-          row.innerHTML = `
-            <div style="overflow:hidden">
-              <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.filename}</div>
-              ${f.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${f.notes}</div>` : ''}
-            </div>
-            <a href="${urlData.publicUrl}" download="${f.filename}" style="flex-shrink:0;padding:7px 14px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-size:12px;text-decoration:none;font-family:var(--mono);white-space:nowrap">↓ Download</a>
-          `;
-          typeBlock.appendChild(row);
-        });
-        clientSection.appendChild(typeBlock);
+    const sec = document.createElement('div');
+    sec.style.cssText = 'margin-bottom:40px';
+    sec.innerHTML = `<div style="font-family:var(--display);font-size:18px;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px">${avatar}${client}</div>`;
+
+    Object.entries(types).forEach(([type, typeFiles]) => {
+      const block = document.createElement('div');
+      block.style.cssText = 'margin-bottom:20px';
+      block.innerHTML = `<div style="font-size:11px;font-family:var(--mono);color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">${type} · ${typeFiles.length} file${typeFiles.length!==1?'s':''}</div>`;
+
+      typeFiles.forEach(f => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:6px';
+        row.innerHTML = `
+          <div style="overflow:hidden">
+            <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
+            ${f.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${f.notes}</div>` : ''}
+          </div>
+          <a href="${publicUrl(f.name)}" download="${f.name}" style="flex-shrink:0;padding:7px 14px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-size:12px;text-decoration:none;font-family:var(--mono);white-space:nowrap">↓ Download</a>
+        `;
+        block.appendChild(row);
       });
-      content.appendChild(clientSection);
+      sec.appendChild(block);
     });
-  } catch (err) {
-    document.getElementById('dl-sub').textContent = 'No files found.';
-  }
+    content.appendChild(sec);
+  });
 }
 
-// ── NOTIFY ─────────────────────────────────────────────
-
-function notify(msg) {
-  const el = document.getElementById('notify');
-  document.getElementById('notify-msg').textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2800);
+// ── REALTIME ───────────────────────────────────────────
+function subscribeRealtime() {
+  sb.channel('db-changes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'files' }, payload => {
+      if (payload.eventType === 'INSERT') {
+        if (!files.find(f => f.id === payload.new.id)) files.push(payload.new);
+      } else if (payload.eventType === 'UPDATE') {
+        const i = files.findIndex(f => f.id === payload.new.id);
+        if (i !== -1) files[i] = payload.new; else files.push(payload.new);
+      } else if (payload.eventType === 'DELETE') {
+        files = files.filter(f => f.id !== payload.old.id);
+        selected.delete(payload.old.id);
+      }
+      render();
+      renderActionBar();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'clients' }, payload => {
+      if (payload.eventType === 'INSERT') {
+        if (!clients.find(c => c.id === payload.new.id)) clients.push(payload.new);
+      } else if (payload.eventType === 'UPDATE') {
+        const i = clients.findIndex(c => c.id === payload.new.id);
+        if (i !== -1) clients[i] = payload.new;
+      } else if (payload.eventType === 'DELETE') {
+        clients = clients.filter(c => c.id !== payload.old.id);
+      }
+      renderSidebar();
+      renderFilterTabs();
+    })
+    .subscribe();
 }
-
-document.getElementById('bar-client').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
-document.getElementById('bar-type').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
 
 // ── INIT ───────────────────────────────────────────────
-
 async function init() {
-  // load clients
-  try {
-    const { data, error } = await sb.storage.from('delivr').download('clients.json');
-    if (error) throw error;
-    const raw = JSON.parse(await data.text());
-    clients = raw.map(c => typeof c === 'string' ? { name: c, color: '#5B9CF6', logo: clientLogoUrl(c) } : c);
-    console.log('clients loaded:', clients.length);
-  } catch(e) { console.error('clients load failed:', e); }
+  const isDownloadView = new URLSearchParams(location.search).get('view') === 'download';
 
-  // load manifest and restore file list
-  try {
-    const { data, error } = await sb.storage.from('delivr').download('manifest.json');
-    if (error) throw error;
-    if (data) {
-      const manifest = JSON.parse(await data.text());
-      files = manifest.files.map(f => {
-        const { data: urlData } = sb.storage.from('delivr').getPublicUrl(f.filename);
-        return {
-          id: uid(),
-          file: null,
-          name: f.filename,
-          size: f.size_bytes,
-          client: f.client || '',
-          type: f.work_type || '',
-          notes: f.notes || '',
-          url: urlData.publicUrl,
-          remote: true
-        };
-      });
-    }
-  } catch(e) { console.error('manifest load failed:', e); }
-
-  if (new URLSearchParams(location.search).get('view') === 'download') {
-    loadDelivery();
-  } else {
-    render();
-    setInterval(syncFromRemote, 15000);
+  if (isDownloadView) {
+    await loadDownloadView();
+    return;
   }
+
+  await Promise.all([loadClients(), loadFiles()]);
+  subscribeRealtime();
 }
 
 init();
