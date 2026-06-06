@@ -674,8 +674,8 @@ header {
     <option>Copywriting</option>
     <option>Other</option>
   </select>
-  <button class="action-bar-apply" onclick="applyBulkTags()">Apply</button>
-  <button class="action-bar-clear" onclick="clearSelection()">✕</button>
+  <button class="action-bar-apply" id="action-bar-apply" onclick="applyBulkTags()">Apply</button>
+  <button class="action-bar-clear" id="action-bar-clear" onclick="clearSelection()">✕</button>
 </div>
 
 <!-- EXPORT MODAL -->
@@ -877,8 +877,28 @@ function clearSelection() {
 function renderActionBar() {
   const bar = document.getElementById('action-bar');
   const count = selected.size;
-  document.getElementById('action-bar-count').textContent = `${count} selected`;
   bar.classList.toggle('visible', count > 0);
+  if (count === 0) return;
+
+  document.getElementById('action-bar-count').textContent = `${count} selected`;
+
+  // single selection: pre-fill dropdowns with current file values
+  if (count === 1) {
+    const f = files.find(x => selected.has(x.id));
+    if (f) {
+      document.getElementById('bar-client').value = f.client || '';
+      document.getElementById('bar-type').value = f.type || '';
+    }
+  }
+
+  // show Apply only for multi-select
+  document.getElementById('action-bar-apply').style.display = count > 1 ? '' : 'none';
+  // label deselect button
+  document.getElementById('action-bar-clear').textContent = count > 1 ? 'Deselect all' : '✕';
+  document.getElementById('action-bar-clear').style.padding = count > 1 ? '4px 10px' : '4px 6px';
+
+  // update export button label
+  document.getElementById('export-btn').textContent = count > 0 ? `↓ Export selected (${count})` : '↓ Export ZIP';
 }
 
 function applyBulkTags() {
@@ -891,6 +911,19 @@ function applyBulkTags() {
   });
   notify(`Tags applied to ${selected.size} file${selected.size > 1 ? 's' : ''}`);
   render();
+}
+
+function applySingleTag() {
+  if (selected.size !== 1) return;
+  const client = document.getElementById('bar-client').value;
+  const type = document.getElementById('bar-type').value;
+  const f = files.find(x => selected.has(x.id));
+  if (!f) return;
+  if (client !== undefined) f.client = client;
+  if (type !== undefined) f.type = type;
+  renderFileArea();
+  renderClientList();
+  renderFilterTabs();
 }
 
 // ── RENDER ─────────────────────────────────────────────
@@ -1005,10 +1038,11 @@ function setView(mode) {
 // ── EXPORT ─────────────────────────────────────────────
 
 function buildManifest() {
+  const scope = selected.size > 0 ? files.filter(f => selected.has(f.id)) : files;
   return {
     generated: new Date().toISOString(),
-    total: files.length,
-    files: files.map((f, i) => ({
+    total: scope.length,
+    files: scope.map((f, i) => ({
       index: i + 1,
       filename: f.name,
       client: f.client || null,
@@ -1035,8 +1069,9 @@ async function downloadZip() {
   const manifest = buildManifest();
   const zip = new JSZip();
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  const scope = selected.size > 0 ? files.filter(f => selected.has(f.id)) : files;
   const folder = zip.folder('files');
-  for (const f of files) folder.file(f.name, f.file);
+  for (const f of scope) folder.file(f.name, f.file);
   try {
     const blob = await zip.generateAsync({type:'blob', compression:'STORE'});
     const a = document.createElement('a');
@@ -1165,6 +1200,9 @@ function notify(msg) {
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2800);
 }
+
+document.getElementById('bar-client').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
+document.getElementById('bar-type').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
 
 // ── INIT ───────────────────────────────────────────────
 
