@@ -623,8 +623,11 @@
   <div class="header-actions">
     <div class="count-pill" id="count-pill"><span id="total-count">0</span> files</div>
     <button class="btn btn-ghost" onclick="clearAll()" id="clear-btn" style="display:none">Clear all</button>
-    <button class="btn btn-export" onclick="openUpload()" id="export-btn" disabled>
-      ↑ Upload & share
+    <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>
+      ↓ Export for dev
+    </button>
+    <button class="btn btn-accent" onclick="uploadAndShare()" id="upload-btn" disabled style="font-size:13px">
+      ↑ Upload & get link
     </button>
   </div>
 </header>
@@ -754,33 +757,19 @@
   <button class="btn btn-save btn" onclick="saveEdit()">Save tags</button>
 </div>
 
-<!-- UPLOAD MODAL -->
-<div class="modal-overlay" id="upload-modal">
+<!-- EXPORT MODAL -->
+<div class="modal-overlay" id="export-modal">
   <div class="modal">
-    <h2>Upload & share</h2>
-    <p class="modal-sub">Files will be uploaded to the cloud. You'll get a link to send to anyone for downloading.</p>
+    <h2>Export for developer</h2>
+    <p class="modal-sub">Generates a ZIP with all files + a <code style="font-family:var(--mono);font-size:12px;color:var(--accent)">manifest.json</code> for auto-categorization.</p>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-label">Total files</div><div class="stat-val" id="exp-total">0</div></div>
       <div class="stat-box"><div class="stat-label">Untagged</div><div class="stat-val" id="exp-untagged" style="color:var(--red)">0</div></div>
     </div>
+    <div class="manifest-preview" id="manifest-preview"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeUpload()">Cancel</button>
-      <button class="btn btn-accent" id="upload-btn" onclick="uploadAndShare()">↑ Upload & get link</button>
-    </div>
-  </div>
-</div>
-
-<!-- SHARE MODAL -->
-<div class="modal-overlay" id="share-modal">
-  <div class="modal">
-    <h2>Share link ready</h2>
-    <p class="modal-sub">Send this link to anyone — they can open it and download all the files directly.</p>
-    <div class="manifest-preview" style="display:flex;align-items:center;gap:10px;max-height:none">
-      <span id="share-url" style="flex:1;word-break:break-all;color:var(--accent);font-family:var(--mono);font-size:12px"></span>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeShare()">Close</button>
-      <button class="btn btn-accent" onclick="copyShareLink()">Copy link</button>
+      <button class="btn btn-ghost" onclick="closeExport()">Cancel</button>
+      <button class="btn btn-accent" id="download-btn" onclick="downloadZip()">↓ Download ZIP</button>
     </div>
   </div>
 </div>
@@ -928,6 +917,7 @@ function render() {
 
   document.getElementById('total-count').textContent = files.length;
   document.getElementById('export-btn').disabled = files.length === 0;
+  document.getElementById('upload-btn').disabled = files.length === 0;
   document.getElementById('clear-btn').style.display = files.length ? '' : 'none';
 
   if (files.length === 0) {
@@ -1182,24 +1172,41 @@ function renderManifestPreview(manifest) {
     .replace(/: null/g, ': <span class="json-num">null</span>');
 }
 
-function openUpload() {
+function openExport() {
   const untagged = files.filter(f => !f.client || !f.type).length;
   document.getElementById('exp-total').textContent = files.length;
   document.getElementById('exp-untagged').textContent = untagged;
-  document.getElementById('upload-modal').classList.add('open');
+  const manifest = buildManifest();
+  document.getElementById('manifest-preview').innerHTML = '<pre style="font-size:11px;line-height:1.6">' + renderManifestPreview(manifest) + '</pre>';
+  document.getElementById('export-modal').classList.add('open');
 }
 
-function closeUpload() {
-  document.getElementById('upload-modal').classList.remove('open');
+function closeExport() {
+  document.getElementById('export-modal').classList.remove('open');
 }
 
-function closeShare() {
-  document.getElementById('share-modal').classList.remove('open');
-}
-
-function copyShareLink() {
-  const url = document.getElementById('share-url').textContent;
-  navigator.clipboard.writeText(url).then(() => notify('Link copied!'));
+async function downloadZip() {
+  const btn = document.getElementById('download-btn');
+  btn.textContent = 'Packaging…';
+  btn.disabled = true;
+  const manifest = buildManifest();
+  const zip = new JSZip();
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  const folder = zip.folder('files');
+  for (const f of files) folder.file(f.name, f.file);
+  try {
+    const content = await zip.generateAsync({type:'blob', compression:'STORE'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(content);
+    a.download = `portfolio-delivery-${new Date().toISOString().slice(0,10)}.zip`;
+    a.click();
+    notify('ZIP downloaded!');
+    closeExport();
+  } catch(err) {
+    notify('Export failed: ' + err.message);
+  }
+  btn.textContent = '↓ Download ZIP';
+  btn.disabled = false;
 }
 
 async function uploadAndShare() {
@@ -1217,18 +1224,15 @@ async function uploadAndShare() {
         .upload(`${sessionId}/${f.name}`, f.file, { upsert: true });
       if (error) throw error;
     }
-
     const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
     const { error: mErr } = await supabase.storage
       .from('delivr')
       .upload(`${sessionId}/manifest.json`, manifestBlob, { upsert: true });
     if (mErr) throw mErr;
 
-    closeUpload();
     const shareUrl = `${location.origin}${location.pathname}?session=${sessionId}`;
-    document.getElementById('share-url').textContent = shareUrl;
-    document.getElementById('share-modal').classList.add('open');
-    notify('Upload complete!');
+    await navigator.clipboard.writeText(shareUrl);
+    notify('Link copied to clipboard!');
   } catch (err) {
     notify('Upload failed: ' + err.message);
   }
