@@ -596,7 +596,6 @@ header {
     <div class="count-pill" id="count-pill"><span id="total-count">0</span> files</div>
     <button class="btn btn-ghost" onclick="clearAll()" id="clear-btn" style="display:none">Clear all</button>
     <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>↓ Export ZIP</button>
-    <button class="btn btn-accent" onclick="uploadAndShare()" id="upload-btn" disabled>↑ Upload & get link</button>
   </div>
 </header>
 
@@ -717,6 +716,7 @@ let selected = new Set();
 let currentFilter = 'all';
 let viewMode = 'grid';
 let tagHistory = [];
+let sessionId = Math.random().toString(36).slice(2, 10);
 
 function uid() { return Math.random().toString(36).slice(2,9); }
 
@@ -738,14 +738,28 @@ function fmtSize(s) { return s < 1048576 ? (s/1024).toFixed(0)+' KB' : (s/104857
 
 // ── FILES ──────────────────────────────────────────────
 
-function handleFiles(fileList) {
-  Array.from(fileList).forEach(file => {
-    const entry = { id: uid(), file, name: file.name, size: file.size, client:'', type:'', notes:'', url: null };
+async function handleFiles(fileList) {
+  const newEntries = Array.from(fileList).map(file => {
+    const entry = { id: uid(), file, name: file.name, size: file.size, client:'', type:'', notes:'', url: null, uploading: true };
     if (isImage(file.name) || isVideo(file.name)) entry.url = URL.createObjectURL(file);
     files.push(entry);
+    return entry;
   });
+  // push session into URL on first upload
+  if (!location.search.includes('session=')) {
+    history.replaceState(null, '', `${location.pathname}?session=${sessionId}`);
+  }
   render();
-  notify(`${fileList.length} file${fileList.length > 1 ? 's' : ''} added`);
+  notify(`Uploading ${newEntries.length} file${newEntries.length > 1 ? 's' : ''}…`);
+  for (const entry of newEntries) {
+    const { error } = await sb.storage.from('delivr').upload(`${sessionId}/${entry.name}`, entry.file, { upsert: true });
+    entry.uploading = false;
+    if (error) notify(`Failed: ${entry.name}`);
+  }
+  // update manifest
+  const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
+  await sb.storage.from('delivr').upload(`${sessionId}/manifest.json`, mBlob, { upsert: true });
+  notify(`${newEntries.length} file${newEntries.length > 1 ? 's' : ''} uploaded — copy link from address bar`);
 }
 
 const dropzone = document.getElementById('dropzone');
@@ -1107,33 +1121,6 @@ async function downloadZip() {
   btn.textContent = '↓ Download ZIP'; btn.disabled = false;
 }
 
-// ── UPLOAD & SHARE ─────────────────────────────────────
-
-async function uploadAndShare() {
-  const btn = document.getElementById('upload-btn');
-  btn.textContent = 'Uploading…'; btn.disabled = true;
-
-  const sessionId = Math.random().toString(36).slice(2, 10);
-  const manifest = buildManifest();
-
-  try {
-    for (const f of files) {
-      const { error } = await sb.storage.from('delivr').upload(`${sessionId}/${f.name}`, f.file, { upsert: true });
-      if (error) throw error;
-    }
-    const mBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-    const { error: mErr } = await sb.storage.from('delivr').upload(`${sessionId}/manifest.json`, mBlob, { upsert: true });
-    if (mErr) throw mErr;
-
-    const shareUrl = `${location.origin}${location.pathname}?session=${sessionId}`;
-    await navigator.clipboard.writeText(shareUrl);
-    notify('Link copied to clipboard!');
-  } catch (err) {
-    notify('Upload failed: ' + err.message);
-  }
-
-  btn.textContent = '↑ Upload & get link'; btn.disabled = false;
-}
 
 // ── DOWNLOAD VIEW ──────────────────────────────────────
 
