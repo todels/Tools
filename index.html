@@ -751,8 +751,7 @@ async function handleFiles(fileList) {
     const { error } = await sb.storage.from('delivr').upload(entry.name, entry.file, { upsert: true });
     if (error) notify(`Failed: ${entry.name}`);
   }
-  const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
-  await sb.storage.from('delivr').upload('manifest.json', mBlob, { upsert: true });
+  await saveManifest();
   notify(`${newEntries.length} file${newEntries.length > 1 ? 's' : ''} uploaded`);
 }
 
@@ -769,8 +768,7 @@ async function deleteFile(e, id) {
   files = files.filter(x => x.id !== id);
   selected.delete(id);
   await sb.storage.from('delivr').remove([f.name]);
-  const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
-  await sb.storage.from('delivr').upload('manifest.json', mBlob, { upsert: true });
+  await saveManifest();
   render();
 }
 
@@ -781,8 +779,7 @@ async function deleteSelected() {
   files = files.filter(f => !selected.has(f.id));
   selected.clear();
   await sb.storage.from('delivr').remove(toDelete.map(f => f.name));
-  const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
-  await sb.storage.from('delivr').upload('manifest.json', mBlob, { upsert: true });
+  await saveManifest();
   render();
   notify(`${count} file${count > 1 ? 's' : ''} deleted`);
 }
