@@ -315,7 +315,7 @@ function isImage(n) { return /\.(jpg|jpeg|png|gif|webp|svg|avif)$/i.test(n); }
 function isVideo(n) { return /\.(mp4|mov|webm|avi)$/i.test(n); }
 
 function publicUrl(filename) {
-  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${encodeURIComponent(filename)}`;
+  return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/files/${encodeURIComponent(filename)}`;
 }
 
 function clientLogoUrl(name) {
@@ -382,8 +382,8 @@ async function handleFiles(fileList) {
   notify(`Uploading ${arr.length} file${arr.length > 1 ? 's' : ''}…`);
 
   for (const file of arr) {
-    // upload to storage
-    const { error: storageErr } = await sb.storage.from(BUCKET).upload(file.name, file, { upsert: true });
+    // upload to storage under files/ folder
+    const { error: storageErr } = await sb.storage.from(BUCKET).upload(`files/${file.name}`, file, { upsert: true });
     if (storageErr) { notify(`Storage failed: ${file.name}`); console.error(storageErr); continue; }
 
     // insert into database
@@ -411,7 +411,7 @@ async function updateFileTags(id, client, work_type) {
 
 async function deleteFileById(id, name) {
   await sb.from('files').delete().eq('id', id);
-  await sb.storage.from(BUCKET).remove([name]);
+  await sb.storage.from(BUCKET).remove([`files/${name}`]);
   localFiles.delete(name);
   // realtime updates UI
 }
@@ -495,7 +495,9 @@ async function deleteSelected() {
   if (!confirm(`Delete ${count} file${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
   const toDelete = files.filter(f => selected.has(f.id));
   selected.clear();
-  for (const f of toDelete) await deleteFileById(f.id, f.name);
+  await sb.from('files').delete().in('id', toDelete.map(f => f.id));
+  await sb.storage.from(BUCKET).remove(toDelete.map(f => `files/${f.name}`));
+  toDelete.forEach(f => localFiles.delete(f.name));
   notify(`${count} file${count > 1 ? 's' : ''} deleted`);
 }
 
