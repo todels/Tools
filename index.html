@@ -1256,17 +1256,17 @@ document.getElementById('bar-type').addEventListener('change', () => { if (selec
 async function init() {
   // load clients
   try {
-    const { data } = await sb.storage.from('delivr').download('clients.json');
-    if (data) {
-      const raw = JSON.parse(await data.text());
-      // migrate old string format to objects
-      clients = raw.map(c => typeof c === 'string' ? { name: c, color: '#5B9CF6', logo: clientLogoUrl(c) } : c);
-    }
-  } catch(_) {}
+    const { data, error } = await sb.storage.from('delivr').download('clients.json');
+    if (error) throw error;
+    const raw = JSON.parse(await data.text());
+    clients = raw.map(c => typeof c === 'string' ? { name: c, color: '#5B9CF6', logo: clientLogoUrl(c) } : c);
+    console.log('clients loaded:', clients.length);
+  } catch(e) { console.error('clients load failed:', e); }
 
   // load manifest and restore file list
   try {
-    const { data } = await sb.storage.from('delivr').download('manifest.json');
+    const { data, error } = await sb.storage.from('delivr').download('manifest.json');
+    if (error) throw error;
     if (data) {
       const manifest = JSON.parse(await data.text());
       files = manifest.files.map(f => {
@@ -1284,7 +1284,7 @@ async function init() {
         };
       });
     }
-  } catch(_) {}
+  } catch(e) { console.error('manifest load failed:', e); }
 
   if (new URLSearchParams(location.search).get('view') === 'download') {
     loadDelivery();
