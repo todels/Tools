@@ -135,7 +135,8 @@ header {
   font-size: 13px;
 }
 .client-item-name { display: flex; align-items: center; gap: 8px; }
-.client-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); flex-shrink: 0; }
+.client-dot { width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0; object-fit: cover; }
+.client-dot-plain { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .client-count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
 .client-delete {
   background: none; border: none; color: var(--muted2); cursor: pointer; font-size: 13px; padding: 2px 4px;
@@ -615,6 +616,7 @@ header {
       <div class="sidebar-label">Clients</div>
       <div class="client-list" id="client-list"></div>
       <div class="inline-add">
+        <input type="color" id="new-client-color" value="#5B9CF6" style="width:36px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);cursor:pointer;flex-shrink:0">
         <input type="text" id="new-client-input" placeholder="Add client…">
         <button onclick="addClient()">+ Add</button>
       </div>
@@ -788,6 +790,21 @@ async function deleteSelected() {
 
 // ── CLIENTS ────────────────────────────────────────────
 
+const LOGO_BASE = `${SUPABASE_URL}/storage/v1/object/public/delivr/logos/`;
+
+function clientLogoUrl(name) {
+  // check known uploaded logos (filename matches client name + .png)
+  const known = ['Altura','BAYC','Bruce Lee','Chain','Degen','Dreamworks','Sandbox','Sixr','Sport.fun','Thrust','WSJ','Whop','Zama'];
+  const match = known.find(k => k.toLowerCase() === name.toLowerCase());
+  return match ? LOGO_BASE + encodeURIComponent(match + '.png') : null;
+}
+
+function clientAvatar(c) {
+  const logo = c.logo || clientLogoUrl(c.name);
+  if (logo) return `<img src="${logo}" class="client-dot" style="border-radius:50%;object-fit:cover">`;
+  return `<div class="client-dot-plain" style="background:${c.color || '#5B9CF6'}"></div>`;
+}
+
 async function saveClients() {
   const blob = new Blob([JSON.stringify(clients)], { type: 'application/json' });
   await sb.storage.from('delivr').upload('clients.json', blob, { upsert: true });
@@ -795,9 +812,10 @@ async function saveClients() {
 
 async function addClient() {
   const input = document.getElementById('new-client-input');
+  const color = document.getElementById('new-client-color').value;
   const val = input.value.trim();
-  if (!val || clients.includes(val)) return;
-  clients.push(val);
+  if (!val || clients.find(c => c.name === val)) return;
+  clients.push({ name: val, color, logo: clientLogoUrl(val) });
   input.value = '';
   render();
   await saveClients();
@@ -807,7 +825,7 @@ async function addClient() {
 document.getElementById('new-client-input').addEventListener('keydown', e => { if (e.key === 'Enter') addClient(); });
 
 async function removeClient(name) {
-  clients = clients.filter(c => c !== name);
+  clients = clients.filter(c => c.name !== name);
   files.forEach(f => { if (f.client === name) f.client = ''; });
   render();
   await saveClients();
@@ -817,17 +835,17 @@ function renderClientList() {
   const list = document.getElementById('client-list');
   list.innerHTML = '';
   clients.forEach(c => {
-    const count = files.filter(f => f.client === c).length;
+    const count = files.filter(f => f.client === c.name).length;
     const item = document.createElement('div');
     item.className = 'client-item';
     item.innerHTML = `
       <div class="client-item-name">
-        <div class="client-dot"></div>
-        <span style="font-size:13px">${c}</span>
+        ${clientAvatar(c)}
+        <span style="font-size:13px">${c.name}</span>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <span class="client-count">${count}</span>
-        <button class="client-delete" onclick="removeClient('${c}')" title="Remove">✕</button>
+        <button class="client-delete" onclick="removeClient('${c.name}')" title="Remove">✕</button>
       </div>
     `;
     list.appendChild(item);
@@ -836,7 +854,7 @@ function renderClientList() {
   // action bar client select
   const barClient = document.getElementById('bar-client');
   const cur = barClient.value;
-  barClient.innerHTML = '<option value="">Client…</option>' + clients.map(c => `<option value="${c}">${c}</option>`).join('');
+  barClient.innerHTML = '<option value="">Client…</option>' + clients.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
   if (cur) barClient.value = cur;
 }
 
@@ -859,13 +877,13 @@ function renderFilterTabs() {
   document.getElementById('fb-untagged').textContent = files.filter(f => !f.client || !f.type).length;
 
   clients.forEach(c => {
-    const count = files.filter(f => f.client === c).length;
+    const count = files.filter(f => f.client === c.name).length;
     const btn = document.createElement('button');
-    btn.className = 'filter-tab' + (currentFilter === 'client:'+c ? ' active' : '');
-    btn.dataset.filter = 'client:'+c;
-    btn.dataset.client = c;
-    btn.onclick = () => setFilter('client:'+c, btn);
-    btn.innerHTML = `${c} <span class="filter-badge">${count}</span>`;
+    btn.className = 'filter-tab' + (currentFilter === 'client:'+c.name ? ' active' : '');
+    btn.dataset.filter = 'client:'+c.name;
+    btn.dataset.client = c.name;
+    btn.onclick = () => setFilter('client:'+c.name, btn);
+    btn.innerHTML = `${clientAvatar(c)} ${c.name} <span class="filter-badge">${count}</span>`;
     tabs.appendChild(btn);
   });
 }
@@ -1223,7 +1241,11 @@ async function init() {
   // load clients
   try {
     const { data } = await sb.storage.from('delivr').download('clients.json');
-    if (data) clients = JSON.parse(await data.text());
+    if (data) {
+      const raw = JSON.parse(await data.text());
+      // migrate old string format to objects
+      clients = raw.map(c => typeof c === 'string' ? { name: c, color: '#5B9CF6', logo: clientLogoUrl(c) } : c);
+    }
   } catch(_) {}
 
   // load manifest and restore file list
