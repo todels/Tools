@@ -716,7 +716,6 @@ let selected = new Set();
 let currentFilter = 'all';
 let viewMode = 'grid';
 let tagHistory = [];
-let sessionId = Math.random().toString(36).slice(2, 10);
 
 function uid() { return Math.random().toString(36).slice(2,9); }
 
@@ -740,26 +739,20 @@ function fmtSize(s) { return s < 1048576 ? (s/1024).toFixed(0)+' KB' : (s/104857
 
 async function handleFiles(fileList) {
   const newEntries = Array.from(fileList).map(file => {
-    const entry = { id: uid(), file, name: file.name, size: file.size, client:'', type:'', notes:'', url: null, uploading: true };
+    const entry = { id: uid(), file, name: file.name, size: file.size, client:'', type:'', notes:'', url: null };
     if (isImage(file.name) || isVideo(file.name)) entry.url = URL.createObjectURL(file);
     files.push(entry);
     return entry;
   });
-  // push session into URL on first upload
-  if (!location.search.includes('session=')) {
-    history.replaceState(null, '', `${location.pathname}?session=${sessionId}`);
-  }
   render();
   notify(`Uploading ${newEntries.length} file${newEntries.length > 1 ? 's' : ''}…`);
   for (const entry of newEntries) {
-    const { error } = await sb.storage.from('delivr').upload(`${sessionId}/${entry.name}`, entry.file, { upsert: true });
-    entry.uploading = false;
+    const { error } = await sb.storage.from('delivr').upload(entry.name, entry.file, { upsert: true });
     if (error) notify(`Failed: ${entry.name}`);
   }
-  // update manifest
   const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
-  await sb.storage.from('delivr').upload(`${sessionId}/manifest.json`, mBlob, { upsert: true });
-  notify(`${newEntries.length} file${newEntries.length > 1 ? 's' : ''} uploaded — copy link from address bar`);
+  await sb.storage.from('delivr').upload('manifest.json', mBlob, { upsert: true });
+  notify(`${newEntries.length} file${newEntries.length > 1 ? 's' : ''} uploaded`);
 }
 
 const dropzone = document.getElementById('dropzone');
@@ -1124,20 +1117,16 @@ async function downloadZip() {
 
 // ── DOWNLOAD VIEW ──────────────────────────────────────
 
-async function loadSession(sessionId) {
+async function loadDelivery() {
   document.querySelector('.app').style.display = 'none';
 
   const page = document.createElement('div');
   page.style.cssText = 'min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--body)';
-
-  const header = `
+  page.innerHTML = `
     <div style="height:56px;border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 32px;gap:10px">
       <div style="width:8px;height:8px;background:var(--accent);border-radius:50%"></div>
       <span style="font-family:var(--display);font-size:16px;font-weight:700">delivr</span>
     </div>
-  `;
-
-  page.innerHTML = header + `
     <div style="max-width:860px;margin:0 auto;padding:40px 32px">
       <h1 style="font-family:var(--display);font-size:28px;font-weight:700;margin-bottom:6px">Portfolio delivery</h1>
       <p id="dl-sub" style="color:var(--muted);font-size:14px;margin-bottom:40px">Loading…</p>
@@ -1147,14 +1136,13 @@ async function loadSession(sessionId) {
   document.body.appendChild(page);
 
   try {
-    const { data, error } = await sb.storage.from('delivr').download(`${sessionId}/manifest.json`);
+    const { data, error } = await sb.storage.from('delivr').download('manifest.json');
     if (error) throw error;
     const manifest = JSON.parse(await data.text());
 
     document.getElementById('dl-sub').textContent =
       `${manifest.total} file${manifest.total !== 1 ? 's' : ''} · ${new Date(manifest.generated).toLocaleDateString('en-US', {month:'long',day:'numeric',year:'numeric'})}`;
 
-    // group by client → type
     const groups = {};
     manifest.files.forEach(f => {
       const client = f.client || 'Untagged';
@@ -1165,7 +1153,6 @@ async function loadSession(sessionId) {
     });
 
     const content = document.getElementById('dl-content');
-
     Object.entries(groups).forEach(([client, types]) => {
       const clientSection = document.createElement('div');
       clientSection.style.cssText = 'margin-bottom:40px';
@@ -1179,7 +1166,7 @@ async function loadSession(sessionId) {
         typeBlock.innerHTML = `<div style="font-size:11px;font-family:var(--mono);color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:8px">${type} · ${typeFiles.length} file${typeFiles.length !== 1 ? 's' : ''}</div>`;
 
         typeFiles.forEach(f => {
-          const { data: urlData } = sb.storage.from('delivr').getPublicUrl(`${sessionId}/${f.filename}`);
+          const { data: urlData } = sb.storage.from('delivr').getPublicUrl(f.filename);
           const row = document.createElement('div');
           row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:6px';
           row.innerHTML = `
@@ -1191,14 +1178,12 @@ async function loadSession(sessionId) {
           `;
           typeBlock.appendChild(row);
         });
-
         clientSection.appendChild(typeBlock);
       });
-
       content.appendChild(clientSection);
     });
   } catch (err) {
-    document.getElementById('dl-sub').textContent = 'Could not load files. Link may be invalid.';
+    document.getElementById('dl-sub').textContent = 'No files found.';
   }
 }
 
@@ -1216,9 +1201,8 @@ document.getElementById('bar-type').addEventListener('change', () => { if (selec
 
 // ── INIT ───────────────────────────────────────────────
 
-const sessionParam = new URLSearchParams(location.search).get('session');
-if (sessionParam) {
-  loadSession(sessionParam);
+if (new URLSearchParams(location.search).get('view') === 'download') {
+  loadDelivery();
 } else {
   render();
 }
