@@ -616,7 +616,7 @@ header {
       <div class="sidebar-label">Clients</div>
       <div class="client-list" id="client-list"></div>
       <div class="inline-add">
-        <input type="color" id="new-client-color" value="#5B9CF6" style="width:36px;height:36px;padding:2px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);cursor:pointer;flex-shrink:0">
+        <input type="color" id="new-client-color" value="#5B9CF6" style="width:36px;height:36px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);cursor:pointer;flex-shrink:0;-webkit-appearance:none;appearance:none;">
         <input type="text" id="new-client-input" placeholder="Add client…">
         <button onclick="addClient()">+ Add</button>
       </div>
@@ -947,6 +947,11 @@ function renderActionBar() {
   document.getElementById('export-btn').textContent = count > 0 ? `↓ Export selected (${count})` : '↓ Export ZIP';
 }
 
+async function saveManifest() {
+  const blob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
+  await sb.storage.from('delivr').upload('manifest.json', blob, { upsert: true });
+}
+
 function snapshotTags() {
   tagHistory.push(files.map(f => ({ id: f.id, client: f.client, type: f.type })));
   if (tagHistory.length > 50) tagHistory.shift();
@@ -967,7 +972,7 @@ document.addEventListener('keydown', e => {
   if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoTags(); }
 });
 
-function applyBulkTags() {
+async function applyBulkTags() {
   snapshotTags();
   const client = document.getElementById('bar-client').value;
   const type = document.getElementById('bar-type').value;
@@ -978,9 +983,10 @@ function applyBulkTags() {
   });
   notify(`Tags applied to ${selected.size} file${selected.size > 1 ? 's' : ''}`);
   render();
+  await saveManifest();
 }
 
-function applySingleTag() {
+async function applySingleTag() {
   if (selected.size !== 1) return;
   snapshotTags();
   const client = document.getElementById('bar-client').value;
@@ -992,6 +998,7 @@ function applySingleTag() {
   renderFileArea();
   renderClientList();
   renderFilterTabs();
+  await saveManifest();
 }
 
 // ── RENDER ─────────────────────────────────────────────
