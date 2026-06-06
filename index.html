@@ -594,7 +594,6 @@ header {
   </div>
   <div class="header-actions">
     <div class="count-pill" id="count-pill"><span id="total-count">0</span> files</div>
-    <button class="btn btn-ghost" onclick="clearAll()" id="clear-btn" style="display:none">Clear all</button>
     <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>↓ Export ZIP</button>
   </div>
 </header>
@@ -674,6 +673,7 @@ header {
     <option>Other</option>
   </select>
   <button class="action-bar-apply" id="action-bar-apply" onclick="applyBulkTags()">Apply</button>
+  <button class="action-bar-delete" id="action-bar-delete" onclick="deleteSelected()" style="padding:7px 14px;background:rgba(255,87,87,0.1);color:var(--red);border:1px solid rgba(255,87,87,0.3);border-radius:8px;font-family:var(--body);font-size:13px;cursor:pointer;display:none">Delete</button>
   <button class="action-bar-clear" id="action-bar-clear" onclick="clearSelection()">✕</button>
 </div>
 
@@ -761,17 +761,29 @@ dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-ove
 dropzone.addEventListener('drop', e => { e.preventDefault(); dropzone.classList.remove('drag-over'); handleFiles(e.dataTransfer.files); });
 document.getElementById('file-input').addEventListener('change', e => handleFiles(e.target.files));
 
-function deleteFile(e, id) {
+async function deleteFile(e, id) {
   e.stopPropagation();
-  files = files.filter(f => f.id !== id);
+  const f = files.find(x => x.id === id);
+  if (!confirm(`Delete "${f.name}"?`)) return;
+  files = files.filter(x => x.id !== id);
   selected.delete(id);
+  await sb.storage.from('delivr').remove([f.name]);
+  const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
+  await sb.storage.from('delivr').upload('manifest.json', mBlob, { upsert: true });
   render();
 }
 
-function clearAll() {
-  if (!confirm('Remove all files?')) return;
-  files = []; selected.clear();
+async function deleteSelected() {
+  const count = selected.size;
+  if (!confirm(`Delete ${count} file${count > 1 ? 's' : ''}? This cannot be undone.`)) return;
+  const toDelete = files.filter(f => selected.has(f.id));
+  files = files.filter(f => !selected.has(f.id));
+  selected.clear();
+  await sb.storage.from('delivr').remove(toDelete.map(f => f.name));
+  const mBlob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
+  await sb.storage.from('delivr').upload('manifest.json', mBlob, { upsert: true });
   render();
+  notify(`${count} file${count > 1 ? 's' : ''} deleted`);
 }
 
 // ── CLIENTS ────────────────────────────────────────────
@@ -906,8 +918,9 @@ function renderActionBar() {
     }
   }
 
-  // show Apply only for multi-select
+  // show Apply + Delete only for multi-select
   document.getElementById('action-bar-apply').style.display = count > 1 ? '' : 'none';
+  document.getElementById('action-bar-delete').style.display = count > 1 ? '' : 'none';
   // label deselect button
   document.getElementById('action-bar-clear').textContent = count > 1 ? 'Deselect all' : '✕';
   document.getElementById('action-bar-clear').style.padding = count > 1 ? '4px 10px' : '4px 6px';
@@ -976,7 +989,6 @@ function updateHeader() {
   const n = files.length;
   document.getElementById('total-count').textContent = n;
   document.getElementById('export-btn').disabled = n === 0;
-  document.getElementById('clear-btn').style.display = n ? '' : 'none';
   document.getElementById('select-all-btn').style.display = n ? '' : 'none';
 }
 
