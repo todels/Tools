@@ -957,8 +957,63 @@ function renderActionBar() {
 }
 
 async function saveManifest() {
-  const blob = new Blob([JSON.stringify(buildManifest(), null, 2)], { type: 'application/json' });
+  // fetch remote manifest and merge — never overwrite files we don't have locally
+  let remote = [];
+  try {
+    const { data } = await sb.storage.from('delivr').download('manifest.json');
+    if (data) remote = JSON.parse(await data.text()).files || [];
+  } catch(_) {}
+
+  // build a map of remote files, then apply local tag updates on top
+  const map = {};
+  remote.forEach(f => { map[f.filename] = f; });
+  files.forEach(f => {
+    if (map[f.name]) {
+      map[f.name].client = f.client || null;
+      map[f.name].client_slug = f.client ? f.client.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') : null;
+      map[f.name].work_type = f.type || null;
+      map[f.name].work_type_slug = f.type ? (WORK_TYPES_SLUG[f.type] || f.type.toLowerCase().replace(/\s+/g,'-')) : null;
+      map[f.name].notes = f.notes || null;
+    } else {
+      // new file not yet in remote
+      map[f.name] = {
+        filename: f.name, client: f.client||null,
+        client_slug: f.client ? f.client.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'') : null,
+        work_type: f.type||null,
+        work_type_slug: f.type ? (WORK_TYPES_SLUG[f.type]||f.type.toLowerCase().replace(/\s+/g,'-')) : null,
+        notes: f.notes||null, size_bytes: f.size
+      };
+    }
+  });
+
+  const merged = { generated: new Date().toISOString(), total: Object.keys(map).length, files: Object.values(map) };
+  const blob = new Blob([JSON.stringify(merged, null, 2)], { type: 'application/json' });
   await sb.storage.from('delivr').upload('manifest.json', blob, { upsert: true });
+}
+
+async function syncFromRemote() {
+  try {
+    const { data, error } = await sb.storage.from('delivr').download('manifest.json');
+    if (error || !data) return;
+    const manifest = JSON.parse(await data.text());
+    // merge remote into local — preserve local file objects, add missing ones
+    const localNames = new Set(files.map(f => f.name));
+    manifest.files.forEach(f => {
+      if (localNames.has(f.filename)) {
+        const local = files.find(x => x.name === f.filename);
+        local.client = f.client || '';
+        local.type = f.work_type || '';
+        local.notes = f.notes || '';
+      } else {
+        const { data: urlData } = sb.storage.from('delivr').getPublicUrl(f.filename);
+        files.push({ id: uid(), file: null, name: f.filename, size: f.size_bytes, client: f.client||'', type: f.work_type||'', notes: f.notes||'', url: urlData.publicUrl, remote: true });
+      }
+    });
+    // remove files that no longer exist in remote
+    const remoteNames = new Set(manifest.files.map(f => f.filename));
+    files = files.filter(f => !f.remote || remoteNames.has(f.name));
+    render();
+  } catch(_) {}
 }
 
 function snapshotTags() {
@@ -1290,6 +1345,7 @@ async function init() {
     loadDelivery();
   } else {
     render();
+    setInterval(syncFromRemote, 15000);
   }
 }
 
