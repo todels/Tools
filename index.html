@@ -1106,7 +1106,7 @@ async function downloadZip() {
   const manifest = buildManifest();
   const zip = new JSZip();
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-  const scope = selected.size > 0 ? files.filter(f => selected.has(f.id)) : files;
+  const scope = (selected.size > 0 ? files.filter(f => selected.has(f.id)) : files).filter(f => !f.remote);
   const folder = zip.folder('files');
   for (const f of scope) folder.file(f.name, f.file);
   try {
@@ -1209,10 +1209,34 @@ document.getElementById('bar-type').addEventListener('change', () => { if (selec
 // ── INIT ───────────────────────────────────────────────
 
 async function init() {
+  // load clients
   try {
-    const { data, error } = await sb.storage.from('delivr').download('clients.json');
-    if (!error && data) clients = JSON.parse(await data.text());
+    const { data } = await sb.storage.from('delivr').download('clients.json');
+    if (data) clients = JSON.parse(await data.text());
   } catch(_) {}
+
+  // load manifest and restore file list
+  try {
+    const { data } = await sb.storage.from('delivr').download('manifest.json');
+    if (data) {
+      const manifest = JSON.parse(await data.text());
+      files = manifest.files.map(f => {
+        const { data: urlData } = sb.storage.from('delivr').getPublicUrl(f.filename);
+        return {
+          id: uid(),
+          file: null,
+          name: f.filename,
+          size: f.size_bytes,
+          client: f.client || '',
+          type: f.work_type || '',
+          notes: f.notes || '',
+          url: urlData.publicUrl,
+          remote: true
+        };
+      });
+    }
+  } catch(_) {}
+
   if (new URLSearchParams(location.search).get('view') === 'download') {
     loadDelivery();
   } else {
