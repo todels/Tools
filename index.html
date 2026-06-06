@@ -776,22 +776,29 @@ function clearAll() {
 
 // ── CLIENTS ────────────────────────────────────────────
 
-function addClient() {
+async function saveClients() {
+  const blob = new Blob([JSON.stringify(clients)], { type: 'application/json' });
+  await sb.storage.from('delivr').upload('clients.json', blob, { upsert: true });
+}
+
+async function addClient() {
   const input = document.getElementById('new-client-input');
   const val = input.value.trim();
   if (!val || clients.includes(val)) return;
   clients.push(val);
   input.value = '';
   render();
+  await saveClients();
   notify(`Client "${val}" added`);
 }
 
 document.getElementById('new-client-input').addEventListener('keydown', e => { if (e.key === 'Enter') addClient(); });
 
-function removeClient(name) {
+async function removeClient(name) {
   clients = clients.filter(c => c !== name);
   files.forEach(f => { if (f.client === name) f.client = ''; });
   render();
+  await saveClients();
 }
 
 function renderClientList() {
@@ -1201,11 +1208,19 @@ document.getElementById('bar-type').addEventListener('change', () => { if (selec
 
 // ── INIT ───────────────────────────────────────────────
 
-if (new URLSearchParams(location.search).get('view') === 'download') {
-  loadDelivery();
-} else {
-  render();
+async function init() {
+  try {
+    const { data, error } = await sb.storage.from('delivr').download('clients.json');
+    if (!error && data) clients = JSON.parse(await data.text());
+  } catch(_) {}
+  if (new URLSearchParams(location.search).get('view') === 'download') {
+    loadDelivery();
+  } else {
+    render();
+  }
 }
+
+init();
 </script>
 </body>
 </html>
