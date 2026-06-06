@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -622,8 +623,8 @@
   <div class="header-actions">
     <div class="count-pill" id="count-pill"><span id="total-count">0</span> files</div>
     <button class="btn btn-ghost" onclick="clearAll()" id="clear-btn" style="display:none">Clear all</button>
-    <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>
-      ↓ Export for dev
+    <button class="btn btn-export" onclick="openUpload()" id="export-btn" disabled>
+      ↑ Upload & share
     </button>
   </div>
 </header>
@@ -753,19 +754,33 @@
   <button class="btn btn-save btn" onclick="saveEdit()">Save tags</button>
 </div>
 
-<!-- EXPORT MODAL -->
-<div class="modal-overlay" id="export-modal">
+<!-- UPLOAD MODAL -->
+<div class="modal-overlay" id="upload-modal">
   <div class="modal">
-    <h2>Export for developer</h2>
-    <p class="modal-sub">This will generate a ZIP containing all your files + a <code style="font-family:var(--mono); font-size:12px; color:var(--accent)">manifest.json</code>. The dev can parse the JSON to auto-categorize everything.</p>
+    <h2>Upload & share</h2>
+    <p class="modal-sub">Files will be uploaded to the cloud. You'll get a link to send to anyone for downloading.</p>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-label">Total files</div><div class="stat-val" id="exp-total">0</div></div>
       <div class="stat-box"><div class="stat-label">Untagged</div><div class="stat-val" id="exp-untagged" style="color:var(--red)">0</div></div>
     </div>
-    <div class="manifest-preview" id="manifest-preview"></div>
     <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeExport()">Cancel</button>
-      <button class="btn btn-accent" id="download-btn" onclick="downloadZip()">↓ Download ZIP</button>
+      <button class="btn btn-ghost" onclick="closeUpload()">Cancel</button>
+      <button class="btn btn-accent" id="upload-btn" onclick="uploadAndShare()">↑ Upload & get link</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div class="modal-overlay" id="share-modal">
+  <div class="modal">
+    <h2>Share link ready</h2>
+    <p class="modal-sub">Send this link to anyone — they can open it and download all the files directly.</p>
+    <div class="manifest-preview" style="display:flex;align-items:center;gap:10px;max-height:none">
+      <span id="share-url" style="flex:1;word-break:break-all;color:var(--accent);font-family:var(--mono);font-size:12px"></span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeShare()">Close</button>
+      <button class="btn btn-accent" onclick="copyShareLink()">Copy link</button>
     </div>
   </div>
 </div>
@@ -777,6 +792,10 @@
 </div>
 
 <script>
+const SUPABASE_URL = 'https://jtyecjkdytklduivybah.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_FwnJolh1BHOZbwQrTmKKag_V263_PMe';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
 let files = [];
 let clients = [];
 let selectedId = null;
@@ -1163,84 +1182,105 @@ function renderManifestPreview(manifest) {
     .replace(/: null/g, ': <span class="json-num">null</span>');
 }
 
-function openExport() {
+function openUpload() {
   const untagged = files.filter(f => !f.client || !f.type).length;
   document.getElementById('exp-total').textContent = files.length;
   document.getElementById('exp-untagged').textContent = untagged;
-  const manifest = buildManifest();
-  document.getElementById('manifest-preview').innerHTML = '<pre style="font-size:11px;line-height:1.6">' + renderManifestPreview(manifest) + '</pre>';
-  document.getElementById('export-modal').classList.add('open');
+  document.getElementById('upload-modal').classList.add('open');
 }
 
-function closeExport() {
-  document.getElementById('export-modal').classList.remove('open');
+function closeUpload() {
+  document.getElementById('upload-modal').classList.remove('open');
 }
 
-async function downloadZip() {
-  const btn = document.getElementById('download-btn');
-  btn.textContent = 'Packaging…';
+function closeShare() {
+  document.getElementById('share-modal').classList.remove('open');
+}
+
+function copyShareLink() {
+  const url = document.getElementById('share-url').textContent;
+  navigator.clipboard.writeText(url).then(() => notify('Link copied!'));
+}
+
+async function uploadAndShare() {
+  const btn = document.getElementById('upload-btn');
+  btn.textContent = 'Uploading…';
   btn.disabled = true;
 
+  const sessionId = Math.random().toString(36).slice(2, 10);
   const manifest = buildManifest();
-  const zip = new JSZip();
-
-  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
-  zip.file('README.md',
-`# Portfolio Delivery Package
-
-Generated: ${manifest.generated}
-Total files: ${manifest.total}
-
-## Structure
-
-Each file is listed in \`manifest.json\` with:
-- \`filename\` — original file name
-- \`client\` — client name
-- \`client_slug\` — URL-safe version (e.g. "acme-corp")
-- \`work_type\` — category label
-- \`work_type_slug\` — URL-safe version (e.g. "graphic-design")
-- \`notes\` — optional notes from the creative team
-- \`path\` — suggested folder path: \`{client}/{type}/{filename}\`
-
-## Quick start (JavaScript)
-
-\`\`\`js
-const manifest = require('./manifest.json');
-
-// Group by client
-const byClient = {};
-manifest.files.forEach(f => {
-  if (!byClient[f.client_slug]) byClient[f.client_slug] = [];
-  byClient[f.client_slug].push(f);
-});
-
-// Group by work type
-const byType = {};
-manifest.files.forEach(f => {
-  if (!byType[f.work_type_slug]) byType[f.work_type_slug] = [];
-  byType[f.work_type_slug].push(f);
-});
-\`\`\`
-`);
-
-  const filesFolder = zip.folder('files');
-  for (const f of files) {
-    filesFolder.file(f.name, f.file);
-  }
 
   try {
-    const content = await zip.generateAsync({type:'blob', compression:'STORE'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(content);
-    a.download = `portfolio-delivery-${new Date().toISOString().slice(0,10)}.zip`;
-    a.click();
-    notify('ZIP downloaded!');
-    closeExport();
-  } catch(err) {
-    notify('Export failed: ' + err.message);
+    for (const f of files) {
+      const { error } = await supabase.storage
+        .from('delivr')
+        .upload(`${sessionId}/${f.name}`, f.file, { upsert: true });
+      if (error) throw error;
+    }
+
+    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+    const { error: mErr } = await supabase.storage
+      .from('delivr')
+      .upload(`${sessionId}/manifest.json`, manifestBlob, { upsert: true });
+    if (mErr) throw mErr;
+
+    closeUpload();
+    const shareUrl = `${location.origin}${location.pathname}?session=${sessionId}`;
+    document.getElementById('share-url').textContent = shareUrl;
+    document.getElementById('share-modal').classList.add('open');
+    notify('Upload complete!');
+  } catch (err) {
+    notify('Upload failed: ' + err.message);
   }
-  btn.textContent = '↓ Download ZIP';
+
+  btn.textContent = '↑ Upload & get link';
   btn.disabled = false;
+}
+
+async function loadSession(sessionId) {
+  document.querySelector('.app').style.display = 'none';
+
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'min-height:100vh;background:var(--bg);color:var(--text);font-family:var(--body);padding:40px 32px;max-width:800px;margin:0 auto';
+
+  wrapper.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:32px">
+      <div style="width:8px;height:8px;background:var(--accent);border-radius:50%"></div>
+      <span style="font-family:var(--display);font-size:18px;font-weight:700">delivr</span>
+    </div>
+    <h1 style="font-family:var(--display);font-size:28px;font-weight:700;margin-bottom:8px">Portfolio delivery</h1>
+    <p style="color:var(--muted);font-size:14px;margin-bottom:32px">Loading files…</p>
+    <div id="dl-list"></div>
+  `;
+  document.body.appendChild(wrapper);
+
+  try {
+    const { data: manifestData, error } = await supabase.storage
+      .from('delivr')
+      .download(`${sessionId}/manifest.json`);
+    if (error) throw error;
+
+    const manifest = JSON.parse(await manifestData.text());
+    const sub = wrapper.querySelector('p');
+    sub.textContent = `${manifest.total} file${manifest.total !== 1 ? 's' : ''} · sent ${new Date(manifest.generated).toLocaleDateString()}`;
+
+    const list = wrapper.querySelector('#dl-list');
+    for (const f of manifest.files) {
+      const { data } = supabase.storage.from('delivr').getPublicUrl(`${sessionId}/${f.filename}`);
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:8px';
+      row.innerHTML = `
+        <div style="overflow:hidden">
+          <div style="font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.filename}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px;font-family:var(--mono)">${f.client || '—'} · ${f.work_type || '—'}${f.notes ? ' · ' + f.notes : ''}</div>
+        </div>
+        <a href="${data.publicUrl}" download="${f.filename}" style="flex-shrink:0;padding:8px 14px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-size:13px;text-decoration:none;font-family:var(--body);white-space:nowrap">↓ Download</a>
+      `;
+      list.appendChild(row);
+    }
+  } catch (err) {
+    wrapper.querySelector('p').textContent = 'Could not load files. Link may be invalid.';
+  }
 }
 
 function notify(msg) {
@@ -1250,7 +1290,12 @@ function notify(msg) {
   setTimeout(() => el.classList.remove('show'), 2600);
 }
 
-render();
+const sessionParam = new URLSearchParams(location.search).get('session');
+if (sessionParam) {
+  loadSession(sessionParam);
+} else {
+  render();
+}
 </script>
 </body>
 </html>
