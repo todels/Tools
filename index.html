@@ -616,7 +616,6 @@ header {
       <div class="sidebar-label">Clients</div>
       <div class="client-list" id="client-list"></div>
       <div class="inline-add">
-        <input type="color" id="new-client-color" value="#5B9CF6" style="width:36px;height:36px;padding:3px;border-radius:8px;border:1px solid var(--border);background:var(--surface3);cursor:pointer;flex-shrink:0;-webkit-appearance:none;appearance:none;">
         <input type="text" id="new-client-input" placeholder="Add client…">
         <button onclick="addClient()">+ Add</button>
       </div>
@@ -812,14 +811,21 @@ async function saveClients() {
 
 async function addClient() {
   const input = document.getElementById('new-client-input');
-  const color = document.getElementById('new-client-color').value;
   const val = input.value.trim();
   if (!val || clients.find(c => c.name === val)) return;
-  clients.push({ name: val, color, logo: clientLogoUrl(val) });
+  clients.push({ name: val, color: '#5B9CF6', logo: clientLogoUrl(val) });
   input.value = '';
   render();
   await saveClients();
   notify(`Client "${val}" added`);
+}
+
+async function updateClientColor(name, color) {
+  const c = clients.find(x => x.name === name);
+  if (!c) return;
+  c.color = color;
+  render();
+  await saveClients();
 }
 
 document.getElementById('new-client-input').addEventListener('keydown', e => { if (e.key === 'Enter') addClient(); });
@@ -845,6 +851,9 @@ function renderClientList() {
       </div>
       <div style="display:flex;align-items:center;gap:6px">
         <span class="client-count">${count}</span>
+        ${!c.logo ? `<input type="color" value="${c.color||'#5B9CF6'}" title="Change color"
+          style="width:20px;height:20px;padding:1px;border-radius:4px;border:1px solid var(--border);background:none;cursor:pointer;flex-shrink:0"
+          onchange="updateClientColor('${c.name}', this.value)">` : ''}
         <button class="client-delete" onclick="removeClient('${c.name}')" title="Remove">✕</button>
       </div>
     `;
