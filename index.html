@@ -976,7 +976,6 @@ function updateHeader() {
   const n = files.length;
   document.getElementById('total-count').textContent = n;
   document.getElementById('export-btn').disabled = n === 0;
-  document.getElementById('upload-btn').disabled = n === 0;
   document.getElementById('clear-btn').style.display = n ? '' : 'none';
   document.getElementById('select-all-btn').style.display = n ? '' : 'none';
 }
