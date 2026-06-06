@@ -716,6 +716,7 @@ let clients = [];
 let selected = new Set();
 let currentFilter = 'all';
 let viewMode = 'grid';
+let tagHistory = [];
 
 function uid() { return Math.random().toString(36).slice(2,9); }
 
@@ -901,7 +902,28 @@ function renderActionBar() {
   document.getElementById('export-btn').textContent = count > 0 ? `↓ Export selected (${count})` : '↓ Export ZIP';
 }
 
+function snapshotTags() {
+  tagHistory.push(files.map(f => ({ id: f.id, client: f.client, type: f.type })));
+  if (tagHistory.length > 50) tagHistory.shift();
+}
+
+function undoTags() {
+  if (tagHistory.length === 0) return;
+  const snap = tagHistory.pop();
+  snap.forEach(s => {
+    const f = files.find(x => x.id === s.id);
+    if (f) { f.client = s.client; f.type = s.type; }
+  });
+  notify('Undo — tags restored');
+  render();
+}
+
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoTags(); }
+});
+
 function applyBulkTags() {
+  snapshotTags();
   const client = document.getElementById('bar-client').value;
   const type = document.getElementById('bar-type').value;
   files.forEach(f => {
@@ -915,6 +937,7 @@ function applyBulkTags() {
 
 function applySingleTag() {
   if (selected.size !== 1) return;
+  snapshotTags();
   const client = document.getElementById('bar-client').value;
   const type = document.getElementById('bar-type').value;
   const f = files.find(x => selected.has(x.id));
