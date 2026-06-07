@@ -422,6 +422,11 @@ function fileIcon(name) {
 function isImage(n) { return /\.(jpg|jpeg|png|gif|webp|svg|avif)$/i.test(n); }
 function isVideo(n) { return /\.(mp4|mov|webm|avi)$/i.test(n); }
 
+function getDriveId(url) {
+  const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+  return m ? m[1] : null;
+}
+
 function publicUrl(filename) {
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/files/${encodeURIComponent(filename)}`;
 }
@@ -784,10 +789,12 @@ function makeCard(f) {
   let preview = '';
   let playBtn = '';
   if (f.drive_url) {
-    preview = `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted)">
-      <svg width="32" height="32" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.5C.4 49.9 0 51.45 0 53h27.5l16.15-28z" fill="#00AC47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H60l5.55 10.9 7.45 12.9z" fill="#EA4335"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.95 0H34.35c-1.55 0-3.1.45-4.45 1.2L43.65 25z" fill="#00832D"/><path d="M60.1 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.45 1.2h50.9c1.55 0 3.1-.45 4.45-1.2L60.1 53z" fill="#2684FC"/><path d="M73.4 26.5l-12.6-21.8c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 60.1 53h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#FFBA00"/></svg>
-      <span style="font-size:11px;font-family:var(--mono)">Google Drive</span>
-    </div>`;
+    const driveId = getDriveId(f.drive_url);
+    const thumb = driveId ? `https://drive.google.com/thumbnail?id=${driveId}&sz=w400` : null;
+    preview = thumb
+      ? `<img src="${thumb}" alt="${f.name}" style="width:100%;height:100%;object-fit:cover">`
+      : `<div style="font-size:28px">🎬</div>`;
+    playBtn = `<div class="card-play"><a class="play-btn" href="${f.drive_url}" target="_blank" style="text-decoration:none">▶</a></div>`;
   } else if (isImage(f.name)) {
     preview = `<img src="${publicUrl(f.name)}" alt="" loading="lazy">`;
   } else if (isVideo(f.name)) {
