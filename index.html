@@ -805,12 +805,17 @@ function makeCard(f) {
   const clientTag = f.client ? `<span class="tag tag-client">${f.client}</span>` : '<span class="tag tag-unset">no client</span>';
   const typeTag = f.work_type ? `<span class="tag tag-type">${f.work_type}</span>` : '<span class="tag tag-unset">no type</span>';
 
+  const openUrl = f.drive_url || publicUrl(f.name);
+  const openLabel = f.drive_url ? '↗ Drive' : '↓ Download';
+  const openAttr = f.drive_url ? `href="${openUrl}" target="_blank"` : `href="${openUrl}" download="${f.name}"`;
+
   el.innerHTML = `
     <div class="card-check">${selected.has(f.id)?'✓':''}</div>
     <div class="card-preview" style="position:relative">${preview}${playBtn}</div>
     <div class="card-body">
       <div class="card-filename" title="${f.name}">${f.name}</div>
-      <div class="card-tags">${clientTag}${typeTag}</div>
+      <div class="card-tags" style="margin-bottom:8px">${clientTag}${typeTag}</div>
+      <a ${openAttr} onclick="event.stopPropagation()" style="display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;color:var(--muted);text-decoration:none;padding:4px 8px;border:1px solid var(--border);border-radius:6px;transition:all 0.12s" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent-border)'" onmouseout="this.style.color='var(--muted)';this.style.borderColor='var(--border)'">${openLabel}</a>
     </div>
     <button class="card-delete" onclick="event.stopPropagation();if(confirm('Delete &quot;${f.name}&quot;?'))deleteFileById('${f.id}','${f.name}')">✕</button>
   `;
@@ -826,12 +831,16 @@ function makeRow(f) {
   const clientTag = f.client ? `<span class="tag tag-client">${f.client}</span>` : '<span class="tag tag-unset">no client</span>';
   const typeTag = f.work_type ? `<span class="tag tag-type">${f.work_type}</span>` : '<span class="tag tag-unset">no type</span>';
 
+  const rowOpenAttr = f.drive_url ? `href="${f.drive_url}" target="_blank"` : `href="${publicUrl(f.name)}" download="${f.name}"`;
+  const rowOpenLabel = f.drive_url ? '↗ Drive' : '↓';
+
   el.innerHTML = `
     <div class="row-check">${selected.has(f.id)?'✓':''}</div>
-    <div class="row-icon">${fileIcon(f.name)}</div>
-    <div><div class="row-name">${f.name}</div><div class="row-meta">${fmtSize(f.size_bytes||0)}</div></div>
+    <div class="row-icon">${f.drive_url ? '🔗' : fileIcon(f.name)}</div>
+    <div><div class="row-name">${f.name}</div><div class="row-meta">${f.drive_url ? 'Google Drive' : fmtSize(f.size_bytes||0)}</div></div>
     ${clientTag}
     ${typeTag}
+    <a ${rowOpenAttr} onclick="event.stopPropagation()" style="font-family:var(--mono);font-size:11px;color:var(--muted);text-decoration:none;padding:5px 8px;border:1px solid var(--border);border-radius:6px;white-space:nowrap" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='var(--muted)'">${rowOpenLabel}</a>
     <button class="row-delete" onclick="event.stopPropagation();if(confirm('Delete &quot;${f.name}&quot;?'))deleteFileById('${f.id}','${f.name}')">✕</button>
   `;
   el.addEventListener('click', () => toggleSelect(f.id));
@@ -871,15 +880,27 @@ async function downloadZip() {
   zip.file('manifest.json', JSON.stringify(manifest, null, 2));
 
   const folder = zip.folder('files');
+  const driveFiles = [];
   for (const f of scope) {
+    if (f.drive_url) {
+      driveFiles.push(f);
+      continue;
+    }
+    btn.textContent = `Fetching ${f.name}…`;
     if (localFiles.has(f.name)) {
       folder.file(f.name, localFiles.get(f.name));
     } else {
       try {
         const res = await fetch(publicUrl(f.name));
-        folder.file(f.name, await res.blob());
+        if (res.ok) folder.file(f.name, await res.blob());
       } catch(e) { console.warn('Could not fetch', f.name); }
     }
+  }
+
+  if (driveFiles.length) {
+    const lines = ['# Google Drive Files\n', 'These files are hosted on Google Drive:\n'];
+    driveFiles.forEach(f => lines.push(`## ${f.name}\n- Client: ${f.client||'—'}\n- Type: ${f.work_type||'—'}\n- Link: ${f.drive_url}\n`));
+    zip.file('drive-links.md', lines.join('\n'));
   }
 
   try {
