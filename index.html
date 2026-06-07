@@ -483,12 +483,19 @@ async function handleFiles(fileList) {
     statusText.textContent = `Uploading ${done + 1} of ${arr.length} — ${file.name}`;
 
     const { error: storageErr } = await sb.storage.from(BUCKET).upload(`files/${file.name}`, file, { upsert: true });
-    if (storageErr) { notify(`Failed: ${file.name}`); console.error(storageErr); continue; }
+    if (storageErr) {
+      const msg = storageErr.message?.toLowerCase().includes('size')
+        ? `${file.name} is too large (${fmtSize(file.size)}) — increase the limit in Supabase Storage settings`
+        : `Upload failed: ${storageErr.message}`;
+      notify(msg);
+      console.error(storageErr);
+      continue;
+    }
 
     const { error: dbErr } = await sb.from('files').upsert({
       name: file.name, size_bytes: file.size, client: null, work_type: null, notes: null
     }, { onConflict: 'name' });
-    if (dbErr) { notify(`DB failed: ${file.name}`); console.error(dbErr); continue; }
+    if (dbErr) { notify(`DB error: ${dbErr.message}`); console.error(dbErr); continue; }
 
     localFiles.set(file.name, file);
     done++;
