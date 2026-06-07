@@ -600,7 +600,7 @@ function renderActionBar() {
   if (!count) return;
 
   document.getElementById('action-bar-count').textContent = `${count} selected`;
-  document.getElementById('action-bar-apply').style.display = count > 1 ? '' : 'none';
+  document.getElementById('action-bar-apply').style.display = '';
   document.getElementById('action-bar-delete-btn').style.display = count > 1 ? '' : 'none';
   document.getElementById('action-bar-clear').textContent = count > 1 ? 'Deselect all' : '✕';
 
