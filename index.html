@@ -277,6 +277,19 @@ header {
         <span style="font-size:11px;margin-top:4px;display:block;color:var(--muted2)">Images, video, PDF, fonts, any file</span></p>
       </div>
       <input type="file" id="file-input" multiple>
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:12px">
+        <div class="sidebar-label" style="margin-bottom:8px">Or link from Google Drive</div>
+        <input type="text" id="drive-name" placeholder="File name…"
+          style="width:100%;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-family:var(--body);font-size:13px;outline:none;margin-bottom:6px"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
+        <div style="display:flex;gap:6px">
+          <input type="text" id="drive-url" placeholder="Paste Drive link…"
+            style="flex:1;background:var(--surface3);border:1px solid var(--border);color:var(--text);padding:8px 10px;border-radius:8px;font-family:var(--body);font-size:13px;outline:none;min-width:0"
+            onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+            onkeydown="if(event.key==='Enter')addDriveLink()">
+          <button onclick="addDriveLink()" style="padding:8px 12px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-size:13px;cursor:pointer;font-family:var(--body);white-space:nowrap">+ Add</button>
+        </div>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -503,6 +516,23 @@ async function handleFiles(fileList) {
 
   status.style.display = 'none';
   notify(`${done} file${done !== 1 ? 's' : ''} uploaded ✓`);
+  await loadFiles();
+}
+
+async function addDriveLink() {
+  const name = document.getElementById('drive-name').value.trim();
+  const url  = document.getElementById('drive-url').value.trim();
+  if (!name) { notify('Enter a file name'); return; }
+  if (!url || !url.includes('drive.google.com')) { notify('Paste a valid Google Drive link'); return; }
+
+  const { error } = await sb.from('files').insert({
+    name, size_bytes: 0, client: null, work_type: null, notes: null, drive_url: url
+  });
+  if (error) { notify('Failed to add Drive link: ' + error.message); return; }
+
+  document.getElementById('drive-name').value = '';
+  document.getElementById('drive-url').value  = '';
+  notify(`"${name}" linked from Drive ✓`);
   await loadFiles();
 }
 
@@ -750,13 +780,19 @@ function makeCard(f) {
   el.className = 'file-card' + (selected.has(f.id) ? ' selected' : '');
   el.dataset.id = f.id;
 
-  const url = publicUrl(f.name);
+  const url = f.drive_url ? f.drive_url : publicUrl(f.name);
   let preview = '';
   let playBtn = '';
-  if (isImage(f.name)) preview = `<img src="${url}" alt="" loading="lazy">`;
-  else if (isVideo(f.name)) {
-    preview = `<video src="${url}" muted preload="metadata"></video>`;
-    playBtn = `<div class="card-play"><button class="play-btn" onclick="openVideoModal('${url}')">▶</button></div>`;
+  if (f.drive_url) {
+    preview = `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--muted)">
+      <svg width="32" height="32" viewBox="0 0 87.3 78" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6.6 66.85l3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3L27.5 53H0c0 1.55.4 3.1 1.2 4.5l5.4 9.35z" fill="#0066DA"/><path d="M43.65 25L29.9 1.2C28.55 2 27.4 3.1 26.6 4.5L1.2 48.5C.4 49.9 0 51.45 0 53h27.5l16.15-28z" fill="#00AC47"/><path d="M73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5H60l5.55 10.9 7.45 12.9z" fill="#EA4335"/><path d="M43.65 25L57.4 1.2C56.05.4 54.5 0 52.95 0H34.35c-1.55 0-3.1.45-4.45 1.2L43.65 25z" fill="#00832D"/><path d="M60.1 53H27.5L13.75 76.8c1.35.8 2.9 1.2 4.45 1.2h50.9c1.55 0 3.1-.45 4.45-1.2L60.1 53z" fill="#2684FC"/><path d="M73.4 26.5l-12.6-21.8c-.8-1.4-1.95-2.5-3.3-3.3L43.65 25 60.1 53h27.45c0-1.55-.4-3.1-1.2-4.5L73.4 26.5z" fill="#FFBA00"/></svg>
+      <span style="font-size:11px;font-family:var(--mono)">Google Drive</span>
+    </div>`;
+  } else if (isImage(f.name)) {
+    preview = `<img src="${publicUrl(f.name)}" alt="" loading="lazy">`;
+  } else if (isVideo(f.name)) {
+    preview = `<video src="${publicUrl(f.name)}" muted preload="metadata"></video>`;
+    playBtn = `<div class="card-play"><button class="play-btn" onclick="openVideoModal('${publicUrl(f.name)}')">▶</button></div>`;
   } else preview = fileIcon(f.name);
 
   const clientTag = f.client ? `<span class="tag tag-client">${f.client}</span>` : '<span class="tag tag-unset">no client</span>';
@@ -911,7 +947,10 @@ async function loadDownloadView() {
             <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</div>
             ${f.notes ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${f.notes}</div>` : ''}
           </div>
-          <a href="${publicUrl(f.name)}" download="${f.name}" style="flex-shrink:0;padding:7px 14px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-size:12px;text-decoration:none;font-family:var(--mono);white-space:nowrap">↓ Download</a>
+          ${f.drive_url
+            ? `<a href="${f.drive_url}" target="_blank" style="flex-shrink:0;padding:7px 14px;background:rgba(91,156,246,0.1);color:var(--blue);border:1px solid rgba(91,156,246,0.3);border-radius:8px;font-size:12px;text-decoration:none;font-family:var(--mono);white-space:nowrap">↗ Open in Drive</a>`
+            : `<a href="${publicUrl(f.name)}" download="${f.name}" style="flex-shrink:0;padding:7px 14px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--accent-border);border-radius:8px;font-size:12px;text-decoration:none;font-family:var(--mono);white-space:nowrap">↓ Download</a>`
+          }
         `;
         block.appendChild(row);
       });
