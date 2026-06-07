@@ -258,6 +258,11 @@ header {
   </div>
   <div class="header-actions">
     <div class="count-pill"><span class="live-dot"></span><span id="total-count">0</span> files</div>
+    <div id="upload-status" style="display:none;font-family:var(--mono);font-size:12px;color:var(--muted);display:none;align-items:center;gap:8px">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1s infinite"></div>
+      <span id="upload-status-text">Uploading…</span>
+    </div>
+    <button class="btn btn-ghost" onclick="refreshAll()" title="Refresh" style="padding:9px 10px">↻</button>
     <button class="btn btn-export" onclick="openExport()" id="export-btn" disabled>↓ Export ZIP</button>
   </div>
 </header>
@@ -469,28 +474,37 @@ async function loadFiles() {
 
 async function handleFiles(fileList) {
   const arr = Array.from(fileList);
-  notify(`Uploading ${arr.length} file${arr.length > 1 ? 's' : ''}…`);
+  const status = document.getElementById('upload-status');
+  const statusText = document.getElementById('upload-status-text');
+  status.style.display = 'flex';
 
+  let done = 0;
   for (const file of arr) {
-    // upload to storage under files/ folder
-    const { error: storageErr } = await sb.storage.from(BUCKET).upload(`files/${file.name}`, file, { upsert: true });
-    if (storageErr) { notify(`Storage failed: ${file.name}`); console.error(storageErr); continue; }
+    statusText.textContent = `Uploading ${done + 1} of ${arr.length} — ${file.name}`;
 
-    // insert into database
+    const { error: storageErr } = await sb.storage.from(BUCKET).upload(`files/${file.name}`, file, { upsert: true });
+    if (storageErr) { notify(`Failed: ${file.name}`); console.error(storageErr); continue; }
+
     const { error: dbErr } = await sb.from('files').upsert({
-      name: file.name,
-      size_bytes: file.size,
-      client: null,
-      work_type: null,
-      notes: null
+      name: file.name, size_bytes: file.size, client: null, work_type: null, notes: null
     }, { onConflict: 'name' });
     if (dbErr) { notify(`DB failed: ${file.name}`); console.error(dbErr); continue; }
 
-    // keep local File reference for ZIP export
     localFiles.set(file.name, file);
+    done++;
   }
-  notify(`${arr.length} file${arr.length > 1 ? 's' : ''} uploaded`);
-  // realtime will update UI
+
+  status.style.display = 'none';
+  notify(`${done} file${done !== 1 ? 's' : ''} uploaded ✓`);
+  await loadFiles();
+}
+
+async function refreshAll() {
+  const btn = document.querySelector('[onclick="refreshAll()"]');
+  btn.textContent = '↻'; btn.style.opacity = '0.5';
+  await Promise.all([loadClients(), loadFiles()]);
+  btn.style.opacity = '1';
+  notify('Refreshed');
 }
 
 async function updateFileTags(id, client, work_type) {
