@@ -181,6 +181,71 @@ header {
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 4px; }
+
+/* LOGIN */
+.login-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 999;
+}
+.login-box {
+  width: 360px; padding: 40px;
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.login-logo { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.login-logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; }
+.login-logo span { font-family: var(--display); font-weight: 700; font-size: 18px; }
+.login-box h2 { font-family: var(--display); font-size: 20px; font-weight: 700; }
+.login-box p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.login-field { display: flex; flex-direction: column; gap: 6px; }
+.login-field label { font-size: 12px; color: var(--muted); }
+.login-field input {
+  background: var(--surface3); border: 1px solid var(--border);
+  color: var(--text); padding: 10px 12px; border-radius: var(--radius);
+  font-family: var(--body); font-size: 14px; outline: none;
+}
+.login-field input:focus { border-color: var(--accent); }
+.login-submit {
+  width: 100%; padding: 11px; background: var(--accent); color: #0E0E0F;
+  border: none; border-radius: var(--radius); font-family: var(--body);
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.15s;
+}
+.login-submit:hover { background: var(--accent2); }
+.login-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.login-error { font-size: 12px; color: var(--red); display: none; }
+
+/* VIDEO PREVIEW MODAL */
+.video-modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+  z-index: 500; display: none; align-items: center; justify-content: center;
+}
+.video-modal.open { display: flex; }
+.video-modal video { max-width: 90vw; max-height: 85vh; border-radius: var(--radius); outline: none; }
+.video-modal-close {
+  position: absolute; top: 20px; right: 24px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  color: var(--text); width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px;
+}
+.video-modal-close:hover { background: var(--surface3); }
+
+/* VIDEO PLAY BUTTON ON CARD */
+.card-play {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.3); opacity: 0; transition: opacity 0.15s; z-index: 1;
+  pointer-events: none;
+}
+.file-card:hover .card-play { opacity: 1; }
+.play-btn {
+  width: 44px; height: 44px; background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px); border: 1.5px solid rgba(255,255,255,0.3);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; pointer-events: all; cursor: pointer; transition: all 0.15s;
+}
+.play-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.08); }
 </style>
 </head>
 <body>
@@ -274,6 +339,31 @@ header {
 </div>
 
 <div class="notify" id="notify"><div class="notify-dot"></div><span id="notify-msg">Done</span></div>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo"><div class="login-logo-dot"></div><span>delivr</span></div>
+    <h2>Sign in</h2>
+    <p>This workspace is private. Enter your credentials to continue.</p>
+    <div class="login-field">
+      <label>Email</label>
+      <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>Password</label>
+      <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-error" id="login-error">Incorrect email or password.</div>
+    <button class="login-submit" id="login-submit" onclick="signIn()">Sign in</button>
+  </div>
+</div>
+
+<!-- VIDEO PREVIEW MODAL -->
+<div class="video-modal" id="video-modal" onclick="closeVideoModal()">
+  <button class="video-modal-close" onclick="closeVideoModal()">✕</button>
+  <video id="video-modal-player" controls></video>
+</div>
 
 <script>
 // ── CONFIG ─────────────────────────────────────────────
@@ -516,7 +606,7 @@ async function undoTags() {
   notify('Undo — tags restored');
 }
 
-document.addEventListener('keydown', e => { if ((e.metaKey||e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoTags(); } });
+// keydown handled in init block below
 
 // ── SINGLE-SELECT AUTO-APPLY ───────────────────────────
 document.getElementById('bar-client').addEventListener('change', () => { if (selected.size === 1) applySingleTag(); });
@@ -641,16 +731,19 @@ function makeCard(f) {
 
   const url = publicUrl(f.name);
   let preview = '';
+  let playBtn = '';
   if (isImage(f.name)) preview = `<img src="${url}" alt="" loading="lazy">`;
-  else if (isVideo(f.name)) preview = `<video src="${url}" muted></video>`;
-  else preview = fileIcon(f.name);
+  else if (isVideo(f.name)) {
+    preview = `<video src="${url}" muted preload="metadata"></video>`;
+    playBtn = `<div class="card-play"><button class="play-btn" onclick="openVideoModal('${url}')">▶</button></div>`;
+  } else preview = fileIcon(f.name);
 
   const clientTag = f.client ? `<span class="tag tag-client">${f.client}</span>` : '<span class="tag tag-unset">no client</span>';
   const typeTag = f.work_type ? `<span class="tag tag-type">${f.work_type}</span>` : '<span class="tag tag-unset">no type</span>';
 
   el.innerHTML = `
     <div class="card-check">${selected.has(f.id)?'✓':''}</div>
-    <div class="card-preview">${preview}</div>
+    <div class="card-preview" style="position:relative">${preview}${playBtn}</div>
     <div class="card-body">
       <div class="card-filename" title="${f.name}">${f.name}</div>
       <div class="card-tags">${clientTag}${typeTag}</div>
@@ -838,17 +931,72 @@ function subscribeRealtime() {
     .subscribe();
 }
 
-// ── INIT ───────────────────────────────────────────────
-async function init() {
-  const isDownloadView = new URLSearchParams(location.search).get('view') === 'download';
+// ── AUTH ───────────────────────────────────────────────
+async function signIn() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn      = document.getElementById('login-submit');
+  const err      = document.getElementById('login-error');
 
-  if (isDownloadView) {
-    await loadDownloadView();
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  err.style.display = 'none';
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  if (error) {
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Sign in';
     return;
   }
+  // onAuthStateChange will handle the rest
+}
 
-  await Promise.all([loadClients(), loadFiles()]);
-  subscribeRealtime();
+document.getElementById('login-password').addEventListener('keydown', e => {
+  if (e.key === 'Enter') signIn();
+});
+
+// ── VIDEO MODAL ─────────────────────────────────────────
+function openVideoModal(url) {
+  event.stopPropagation();
+  const player = document.getElementById('video-modal-player');
+  player.src = url;
+  player.play();
+  document.getElementById('video-modal').classList.add('open');
+}
+
+function closeVideoModal() {
+  const player = document.getElementById('video-modal-player');
+  player.pause(); player.src = '';
+  document.getElementById('video-modal').classList.remove('open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeVideoModal();
+  if ((e.metaKey||e.ctrlKey) && e.key === 'z') { e.preventDefault(); undoTags(); }
+});
+
+// ── INIT ───────────────────────────────────────────────
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+
+  // listen for auth changes
+  sb.auth.onAuthStateChange(async (_event, session) => {
+    if (session) {
+      document.getElementById('login-screen').style.display = 'none';
+      document.querySelector('.app').style.display = '';
+      const isDownloadView = new URLSearchParams(location.search).get('view') === 'download';
+      if (isDownloadView) { await loadDownloadView(); return; }
+      await Promise.all([loadClients(), loadFiles()]);
+      subscribeRealtime();
+    } else {
+      document.getElementById('login-screen').style.display = 'flex';
+      document.querySelector('.app').style.display = 'none';
+    }
+  });
+
+  if (!session) {
+    // not logged in — hide app, show login
+    document.querySelector('.app').style.display = 'none';
+  }
 }
 
 init();
