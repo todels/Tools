@@ -313,6 +313,12 @@ header {
         </button>
       </div>
       <div class="filter-right">
+        <select id="type-filter" onchange="setTypeFilter(this.value)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:5px 24px 5px 10px;border-radius:8px;font-family:var(--body);font-size:12px;outline:none;cursor:pointer;appearance:none;background-image:url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%23888884' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\");background-repeat:no-repeat;background-position:right 8px center">
+          <option value="all">All types</option>
+          <option>Graphic Design</option><option>Motion</option><option>Web Design</option>
+          <option>UI / UX</option><option>Branding</option><option>Photography</option>
+          <option>Illustration</option><option>3D / CGI</option><option>Copywriting</option><option>Other</option>
+        </select>
         <button class="select-all-btn" id="select-all-btn" onclick="toggleSelectAll()" style="display:none">Select all</button>
         <div class="view-toggle">
           <button class="view-btn active" id="grid-btn" onclick="setView('grid')">⊞</button>
@@ -336,6 +342,7 @@ header {
     <option>Illustration</option><option>3D / CGI</option><option>Copywriting</option><option>Other</option>
   </select>
   <button class="action-bar-apply" id="action-bar-apply" onclick="applyBulkTags()">Apply</button>
+  <button id="action-bar-rename" onclick="renameSelected()" style="padding:7px 14px;background:var(--surface3);color:var(--muted);border:1px solid var(--border);border-radius:8px;font-family:var(--body);font-size:13px;cursor:pointer;display:none">Rename</button>
   <button class="action-bar-delete-btn" id="action-bar-delete-btn" onclick="deleteSelected()" style="display:none">Delete</button>
   <button class="action-bar-clear" id="action-bar-clear" onclick="clearSelection()">✕</button>
 </div>
@@ -400,6 +407,7 @@ let clients  = [];   // rows from `clients` table
 let selected = new Set();
 let tagHistory = [];
 let currentFilter = 'all';
+let currentTypeFilter = 'all';
 let viewMode = 'grid';
 let localFiles = new Map(); // name → File object (for ZIPping)
 
@@ -601,6 +609,7 @@ function renderActionBar() {
 
   document.getElementById('action-bar-count').textContent = `${count} selected`;
   document.getElementById('action-bar-apply').style.display = '';
+  document.getElementById('action-bar-rename').style.display = count === 1 ? '' : 'none';
   document.getElementById('action-bar-delete-btn').style.display = count > 1 ? '' : 'none';
   document.getElementById('action-bar-clear').textContent = count > 1 ? 'Deselect all' : '✕';
 
@@ -623,7 +632,7 @@ async function applyBulkTags() {
   const { error } = await sb.from('files').update({ client, work_type }).in('id', ids);
   if (error) { notify('Failed to apply tags'); console.error(error); return; }
   notify(`Tags applied to ${ids.length} file${ids.length > 1 ? 's' : ''}`);
-  // realtime updates UI
+  clearSelection();
 }
 
 async function applySingleTag() {
@@ -649,17 +658,23 @@ async function deleteSelected() {
 
 // ── UNDO ───────────────────────────────────────────────
 function snapshotTags() {
-  tagHistory.push(files.map(f => ({ id: f.id, client: f.client, work_type: f.work_type })));
+  tagHistory.push({
+    tags: files.map(f => ({ id: f.id, client: f.client, work_type: f.work_type })),
+    selected: new Set(selected)
+  });
   if (tagHistory.length > 50) tagHistory.shift();
 }
 
 async function undoTags() {
   if (!tagHistory.length) return;
   const snap = tagHistory.pop();
-  for (const s of snap) {
+  for (const s of snap.tags) {
     await sb.from('files').update({ client: s.client, work_type: s.work_type }).eq('id', s.id);
   }
+  selected = new Set(snap.selected);
   notify('Undo — tags restored');
+  renderActionBar();
+  renderCards();
 }
 
 // keydown handled in init block below
@@ -678,11 +693,42 @@ function setFilter(filter, btn) {
   renderActionBar();
 }
 
+function setTypeFilter(val) {
+  currentTypeFilter = val;
+  renderFileArea();
+}
+
 function filteredFiles() {
-  if (currentFilter === 'all') return files;
-  if (currentFilter === 'untagged') return files.filter(f => !f.client || !f.work_type);
-  if (currentFilter.startsWith('client:')) return files.filter(f => f.client === currentFilter.slice(7));
-  return files;
+  let list = files;
+  if (currentFilter === 'untagged') list = list.filter(f => !f.client || !f.work_type);
+  else if (currentFilter.startsWith('client:')) list = list.filter(f => f.client === currentFilter.slice(7));
+  if (currentTypeFilter && currentTypeFilter !== 'all') list = list.filter(f => f.work_type === currentTypeFilter);
+  return list;
+}
+
+async function renameSelected() {
+  if (selected.size !== 1) return;
+  const f = files.find(x => selected.has(x.id));
+  if (!f) return;
+  const newName = prompt('Rename file:', f.name);
+  if (!newName || newName === f.name) return;
+
+  if (f.drive_url) {
+    // Drive file — just rename in DB
+    await sb.from('files').update({ name: newName }).eq('id', f.id);
+  } else {
+    // Storage file — copy to new name, delete old
+    notify('Renaming…');
+    const { data: fileData } = await sb.storage.from(BUCKET).download(`files/${f.name}`);
+    if (!fileData) { notify('Could not fetch file to rename'); return; }
+    await sb.storage.from(BUCKET).upload(`files/${newName}`, fileData, { upsert: true });
+    await sb.storage.from(BUCKET).remove([`files/${f.name}`]);
+    await sb.from('files').update({ name: newName }).eq('id', f.id);
+    if (localFiles.has(f.name)) { localFiles.set(newName, localFiles.get(f.name)); localFiles.delete(f.name); }
+  }
+  notify(`Renamed to "${newName}"`);
+  clearSelection();
+  await loadFiles();
 }
 
 function setView(mode) {
