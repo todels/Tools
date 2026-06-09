@@ -633,6 +633,7 @@ async function applyBulkTags() {
   if (error) { notify('Failed to apply tags'); console.error(error); return; }
   notify(`Tags applied to ${ids.length} file${ids.length > 1 ? 's' : ''}`);
   clearSelection();
+  await loadFiles();
 }
 
 async function applySingleTag() {
@@ -642,7 +643,7 @@ async function applySingleTag() {
   const work_type = document.getElementById('bar-type').value || null;
   snapshotTags();
   await sb.from('files').update({ client, work_type }).eq('id', id);
-  // realtime updates UI
+  await loadFiles();
 }
 
 async function deleteSelected() {
