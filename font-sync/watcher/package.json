@@ -1,0 +1,17 @@
+{
+  "name": "font-watcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Watches system font folders and syncs newly installed fonts to the team library",
+  "type": "module",
+  "bin": {
+    "font-watcher": "./bin/fontsync.js"
+  },
+  "scripts": {
+    "start": "node bin/fontsync.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

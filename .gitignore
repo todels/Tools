@@ -1,6 +1,14 @@
 node_modules/
 Client logos/
 .DS_Store
-*.mjs
-package.json
-package-lock.json
+
+# Root-level scratch files only — anchored so subprojects (font-sync/) can
+# commit their own package.json / .mjs sources.
+/*.mjs
+/package.json
+/package-lock.json
+
+# Local Font Watcher config — contains a Supabase session token.
+.fontsync/
+font-sync/**/config.json
+font-sync/**/state.json

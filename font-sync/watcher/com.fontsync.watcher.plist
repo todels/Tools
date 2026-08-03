@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Runs Font Watcher at login and restarts it if it exits.
+
+  Before loading: replace /usr/local/bin/node with the output of `which node`,
+  and /PATH/TO with the absolute path to this checkout.
+
+    cp com.fontsync.watcher.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.fontsync.watcher.plist
+-->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.fontsync.watcher</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/node</string>
+        <string>/PATH/TO/font-sync/watcher/bin/fontsync.js</string>
+        <!-- No browser pop-up at login; open http://localhost:7331 yourself. -->
+        <string>--no-open</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/YOURNAME/.fontsync/watcher.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/YOURNAME/.fontsync/watcher.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

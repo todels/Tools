@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Font Watcher</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --text: #16181d; --muted: #6b7280;
+    --line: #e3e6ea; --accent: #2f6df6; --warn-bg: #fff8e6; --warn-line: #f0d9a0;
+    --warn-text: #7a5b00; --ok: #1c7f4b; --err: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --card: #1c1f25; --text: #e8eaed; --muted: #9aa1ab;
+      --line: #2b3038; --accent: #5b8dff; --warn-bg: #2c2413; --warn-line: #5a4a20;
+      --warn-text: #e8c96a; --ok: #4ade80; --err: #f87171;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 16px 64px;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 2px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  section {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 16px; margin-bottom: 14px;
+  }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; }
+  input[type=text], input[type=email], input[type=password] {
+    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  button {
+    padding: 8px 14px; border-radius: 6px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); cursor: pointer; font-size: 13px;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .between { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .dot.on { background: var(--ok); } .dot.off { background: var(--muted); }
+  .item { border-top: 1px solid var(--line); padding: 12px 0; }
+  .item:first-of-type { border-top: 0; }
+  .item .name { font-weight: 600; }
+  .item .meta { color: var(--muted); font-size: 12px; }
+  .warn {
+    background: var(--warn-bg); border: 1px solid var(--warn-line); color: var(--warn-text);
+    border-radius: 8px; padding: 12px; font-size: 13px; margin-bottom: 12px;
+  }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; font-size: 13px; color: var(--text); }
+  .check input { margin-top: 3px; }
+  .log { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; color: var(--muted); }
+  .log div { padding: 2px 0; border-top: 1px solid var(--line); }
+  .empty { color: var(--muted); font-size: 13px; }
+  .err { color: var(--err); font-size: 13px; margin-top: 8px; }
+  code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Font Watcher</h1>
+  <p class="sub">Watches your font folders and shares newly installed fonts with your team.</p>
+  <div id="app"></div>
+</div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+let state = null;
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+const when = (iso) => {
+  const secs = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (secs < 60) return 'just now';
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`;
+  return new Date(iso).toLocaleDateString();
+};
+
+const faceList = (faces) => faces.map((f) => `${esc(f.family)} · ${esc(f.style)}`).join('<br>');
+
+function render() {
+  const s = state;
+  const parts = [];
+
+  if (!s.configured) {
+    parts.push(`
+      <section>
+        <h2>Connect to Supabase</h2>
+        <p class="empty">Paste the project URL and anon key from Supabase → Settings → API.</p>
+        <label>Project URL</label>
+        <input type="text" id="sbUrl" placeholder="https://xxxx.supabase.co">
+        <label>Anon key</label>
+        <input type="text" id="sbKey" placeholder="eyJhbGci...">
+        <div class="row" style="margin-top:12px"><button class="primary" onclick="saveConnection()">Save</button></div>
+        <div class="err" id="connErr"></div>
+      </section>`);
+  }
+
+  parts.push(`
+    <section>
+      <h2>Account</h2>
+      ${s.signedIn ? `
+        <div class="between">
+          <div><span class="dot on"></span><strong>${esc(s.email)}</strong></div>
+          <button onclick="signOut()">Sign out</button>
+        </div>` : `
+        <div class="between"><div><span class="dot off"></span>Not signed in</div></div>
+        <label>Email</label><input type="email" id="email" autocomplete="username">
+        <label>Password</label><input type="password" id="password" autocomplete="current-password">
+        <div class="row" style="margin-top:12px">
+          <button class="primary" ${s.configured ? '' : 'disabled'} onclick="signIn()">Sign in</button>
+        </div>`}
+      <div class="err" id="authErr"></div>
+    </section>`);
+
+  parts.push(`
+    <section>
+      <h2>Status</h2>
+      <div class="between">
+        <div>
+          <span class="dot ${s.watchDirs.length ? 'on' : 'off'}"></span>
+          ${s.watchDirs.length ? `Watching ${s.watchDirs.length} folder${s.watchDirs.length > 1 ? 's' : ''}` : 'No font folders found'}
+          ${s.status.uploading ? ` · uploading ${s.status.uploading}` : ''}
+        </div>
+        <button onclick="rescan()">Rescan now</button>
+      </div>
+      <div class="meta" style="margin-top:8px">
+        ${s.watchDirs.map((d) => `<div><code>${esc(d)}</code></div>`).join('')}
+      </div>
+      <div class="meta" style="margin-top:8px;color:var(--muted)">
+        ${s.status.lastScan ? `Last scan ${when(s.status.lastScan)}` : 'No scan yet'}
+        ${s.status.lastError ? ` · <span class="err">${esc(s.status.lastError)}</span>` : ''}
+      </div>
+    </section>`);
+
+  parts.push(`
+    <section>
+      <h2>Settings</h2>
+      <label>Project / brand tag applied to new uploads</label>
+      <div class="row">
+        <input type="text" id="projectTag" value="${esc(s.projectTag)}" placeholder="e.g. Acme rebrand" style="flex:1;min-width:200px">
+        <button onclick="saveTag()">Save</button>
+      </div>
+      <div class="check">
+        <input type="checkbox" id="autoConfirm" ${s.autoConfirmLicense ? 'checked' : ''} onchange="toggleAuto()">
+        <label for="autoConfirm" style="margin:0;color:var(--text)">
+          Upload new fonts automatically, confirming for each one that I have the rights to share it with my team.
+          Leave this off to review every font individually.
+        </label>
+      </div>
+    </section>`);
+
+  parts.push(`
+    <section>
+      <h2>Waiting for confirmation (${s.pending.length})</h2>
+      ${s.pending.length ? `
+        <div class="warn">
+          Many premium and custom fonts prohibit redistribution, including to teammates.
+          Confirm you hold a licence covering everyone who will receive the file before sharing it.
+        </div>
+        ${s.pending.map((p) => `
+          <div class="item">
+            <div class="between">
+              <div>
+                <div class="name">${faceList(p.faces)}</div>
+                <div class="meta">${esc(p.fileName)} · ${(p.size / 1024).toFixed(0)} KB · ${esc(p.format)} · ${when(p.detectedAt)}</div>
+              </div>
+              <div class="row">
+                <button class="primary" ${s.signedIn ? '' : 'disabled'} onclick="approve('${p.id}')">Confirm &amp; upload</button>
+                <button onclick="dismiss('${p.id}')">Skip</button>
+              </div>
+            </div>
+          </div>`).join('')}
+        <div class="row" style="margin-top:12px">
+          <button class="primary" ${s.signedIn ? '' : 'disabled'} onclick="approveAll()">Confirm &amp; upload all</button>
+        </div>
+        ${s.signedIn ? '' : '<div class="err">Sign in to upload.</div>'}
+      ` : '<div class="empty">Nothing waiting. Install a font and it will appear here.</div>'}
+      <div class="err" id="pendErr"></div>
+    </section>`);
+
+  parts.push(`
+    <section>
+      <h2>Recent uploads (${s.uploaded.length})</h2>
+      ${s.uploaded.length ? s.uploaded.map((u) => `
+        <div class="item">
+          <div class="between">
+            <div>
+              <div class="name">${faceList(u.faces)}</div>
+              <div class="meta">${esc(u.fileName)} · ${when(u.at)} ${u.projectTag ? `· <span class="pill">${esc(u.projectTag)}</span>` : ''}</div>
+            </div>
+            <button onclick="retag(${esc(JSON.stringify(JSON.stringify(u.rowIds || [])))})">Set tag</button>
+          </div>
+        </div>`).join('') : '<div class="empty">No uploads yet.</div>'}
+      <div class="err" id="retagErr"></div>
+    </section>`);
+
+  if (s.skipped.length) {
+    parts.push(`
+      <section>
+        <h2>Skipped (${s.skipped.length})</h2>
+        ${s.skipped.map((k) => `
+          <div class="item">
+            <div class="name">${esc(k.fileName)}</div>
+            <div class="meta">${esc(k.reason)}</div>
+          </div>`).join('')}
+      </section>`);
+  }
+
+  parts.push(`
+    <section>
+      <h2>Activity</h2>
+      <div class="log">${s.logs.length ? s.logs.map((l) => `<div>${esc(l)}</div>`).join('') : '<div class="empty">Nothing yet.</div>'}</div>
+    </section>`);
+
+  $('#app').innerHTML = parts.join('');
+}
+
+async function refresh() {
+  try {
+    state = await api('/api/state');
+    render();
+  } catch (err) {
+    $('#app').innerHTML = `<section><div class="err">Lost contact with Font Watcher: ${esc(err.message)}</div></section>`;
+  }
+}
+
+function showError(id, err) {
+  const el = $(id);
+  if (el) el.textContent = err.message;
+}
+
+async function saveConnection() {
+  try {
+    await api('/api/settings', { supabaseUrl: $('#sbUrl').value, supabaseAnonKey: $('#sbKey').value });
+    await refresh();
+  } catch (err) { showError('#connErr', err); }
+}
+
+async function signIn() {
+  try {
+    await api('/api/signin', { email: $('#email').value, password: $('#password').value });
+    await refresh();
+  } catch (err) { showError('#authErr', err); }
+}
+
+async function signOut() { await api('/api/signout', {}); await refresh(); }
+
+async function saveTag() {
+  await api('/api/settings', { projectTag: $('#projectTag').value });
+  await refresh();
+}
+
+async function toggleAuto() {
+  const on = $('#autoConfirm').checked;
+  if (on && !confirm(
+    'Every new font will be uploaded automatically, and each upload records that you confirmed you have the rights to share it.\n\n' +
+    'Only enable this if your team licences cover everyone who will receive these files.'
+  )) { $('#autoConfirm').checked = false; return; }
+  await api('/api/settings', { autoConfirmLicense: on });
+  await refresh();
+}
+
+async function approve(id) { await approveIds([id]); }
+async function approveAll() { await approveIds(state.pending.map((p) => p.id)); }
+
+async function approveIds(ids) {
+  try {
+    const { results } = await api('/api/approve', {
+      ids, licenseConfirmed: true, projectTag: $('#projectTag')?.value ?? state.projectTag,
+    });
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length) throw new Error(failed[0].error);
+  } catch (err) { showError('#pendErr', err); }
+  await refresh();
+}
+
+async function dismiss(id) { await api('/api/dismiss', { ids: [id] }); await refresh(); }
+
+async function retag(rowIdsJson) {
+  const rowIds = JSON.parse(rowIdsJson);
+  if (!rowIds.length) { showError('#retagErr', new Error('No stored rows to tag')); return; }
+  const tag = prompt('Project / brand tag for this font (leave blank to clear):', state.projectTag || '');
+  if (tag === null) return;
+  try {
+    await api('/api/retag', { rowIds, projectTag: tag });
+  } catch (err) { showError('#retagErr', err); }
+  await refresh();
+}
+
+refresh();
+setInterval(refresh, 4000);
+</script>
+</body>
+</html>
