@@ -94,13 +94,21 @@ test('normalizeKey makes Figma-style lookups case- and space-insensitive', () =>
   assert.equal(normalizeKey(null), '');
 });
 
-test('storage paths are content-addressed and filesystem-safe', () => {
+test('storage paths are purely content-addressed', () => {
   const hash = hashBuffer(Buffer.from('abc'));
   const path = storagePathFor('/Users/x/Library/Fonts/Acme Grotesk (1).ttf', hash);
 
-  assert.equal(path, `${hash.slice(0, 12)}-Acme_Grotesk__1_.ttf`);
-  // Same bytes from a different machine must land on the same object.
-  assert.equal(storagePathFor('/other/Acme Grotesk (1).ttf', hash), path);
+  assert.equal(path, `${hash}.ttf`);
+
+  // The same bytes saved under a different filename must collapse onto one
+  // object, or a font gets stored once per spelling of its name.
+  assert.equal(storagePathFor('/other/acme grotesk.ttf', hash), path);
+  assert.equal(storagePathFor('/other/ACME-BOLD.TTF', hash), path);
+
+  // Different formats stay distinct.
+  assert.notEqual(storagePathFor('/x/Acme.otf', hash), path);
+  // And nothing user-controlled reaches the path.
+  assert.match(storagePathFor('/x/../../evil name;.ttf', hash), /^[a-f0-9]{64}\.ttf$/);
 });
 
 test('extension checks separate "is a font" from "we can parse it"', () => {

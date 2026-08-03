@@ -9,7 +9,7 @@
 // callers get null and should surface a "skipped, unsupported format" note.
 
 import { createHash } from 'node:crypto';
-import { extname, basename } from 'node:path';
+import { extname } from 'node:path';
 
 export const SUPPORTED_EXTENSIONS = new Set(['.ttf', '.otf', '.ttc', '.otc']);
 export const KNOWN_FONT_EXTENSIONS = new Set([
@@ -147,10 +147,18 @@ export function hashBuffer(buf) {
   return createHash('sha256').update(buf).digest('hex');
 }
 
-/** `fonts/<hash-prefix>-<safe-name>` — identical bytes always land on one path. */
+/**
+ * Purely content-addressed: `<sha256>.<ext>`.
+ *
+ * The filename is deliberately NOT part of the path. Two designers install the
+ * same font saved under different names ("Acme-Bold.ttf" vs "acme bold.ttf")
+ * and the identical bytes must collapse onto one object — otherwise the same
+ * font is stored once per spelling. The original name is kept in the
+ * `file_name` column and restored at download time.
+ */
 export function storagePathFor(filePath, hash) {
-  const safe = basename(filePath).replace(/[^A-Za-z0-9._-]/g, '_');
-  return `${hash.slice(0, 12)}-${safe}`;
+  const ext = extname(filePath).toLowerCase().replace(/[^a-z0-9.]/g, '');
+  return `${hash}${ext}`;
 }
 
 export function isFontFile(filePath) {

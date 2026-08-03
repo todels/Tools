@@ -100,3 +100,10 @@ A `.ttc` collection produces one row per face sharing a single `file_hash` and
 missing-font lookups while only being stored once. The unique index is on
 `(family_key, style_key, file_hash)`, which makes re-detecting the same file —
 a reinstall, or a second machine — a no-op rather than a duplicate.
+
+`storage_path` is `<sha256>.<ext>` — purely content-addressed, with no part of
+the filename in it. Two designers who install the same font saved under
+different names (`Acme-Bold.ttf` and `acme bold.ttf`) upload identical bytes,
+and those must collapse onto one object rather than being stored once per
+spelling. The original name is preserved in `file_name` and restored at
+download time via the signed URL's `?download=` parameter.
