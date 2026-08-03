@@ -24,15 +24,35 @@ missing them get a one-click download from inside Figma.
 | **Font Watcher** | Dependency-free Node background app. Watches font folders, uploads new fonts. | [watcher/README.md](watcher/README.md) |
 | **Font Finder** | Figma plugin. Detects missing fonts, finds them in the library, downloads them. | [figma-plugin/README.md](figma-plugin/README.md) |
 
-## Set it up in order
+## Set it up
 
-Each step is testable on its own before you move to the next.
+```bash
+cd font-sync
+./setup.sh
+```
+
+That checks your Node version, finds your Supabase project, copies the schema
+to your clipboard and tells you where to paste it, runs the backend self-test,
+signs you in, and starts the watcher. Roughly five minutes, most of it waiting
+on the dashboard.
+
+Only one part can't be automated: **creating the tables**. That needs dashboard
+access the anon key doesn't have, so `setup.sh` pauses while you paste
+`backend/schema.sql` into the Supabase SQL editor and add a user under
+*Authentication → Users*.
+
+Afterwards, install the Figma plugin: Figma **desktop** app → *Plugins →
+Development → Import plugin from manifest…* → `figma-plugin/manifest.json`.
+(Browser Figma can't load local plugins.)
+
+### Or step by step
+
+Each part is testable on its own before you move to the next.
 
 **1. Backend** — paste [`backend/schema.sql`](backend/schema.sql) into the
 Supabase SQL editor, add a user per designer, then:
 
 ```bash
-cd font-sync
 SUPABASE_URL=https://YOURPROJECT.supabase.co SUPABASE_ANON_KEY=eyJ... \
 FONTSYNC_EMAIL=you@agency.com FONTSYNC_PASSWORD=... \
   node backend/test-backend.mjs        # 10/10 checks passed
@@ -40,11 +60,21 @@ FONTSYNC_EMAIL=you@agency.com FONTSYNC_PASSWORD=... \
 
 **2. Font Watcher** — `node watcher/bin/fontsync.js`, sign in at
 `http://localhost:7331`, then install a font and watch it appear in the queue.
-`cd watcher && npm test` runs the parser tests plus an integration test that
-boots the real process against a throwaway font folder.
+`cd watcher && npm test` runs the whole suite.
 
 **3. Font Finder** — Figma → *Plugins → Development → Import plugin from
 manifest…* → `figma-plugin/manifest.json`.
+
+### If something breaks
+
+Work bottom-up — each layer is independently checkable:
+
+| Symptom | Check |
+| --- | --- |
+| `setup.sh` fails at the backend test | The schema didn't run, or the user doesn't exist. Re-run the SQL and check *Authentication → Users*. |
+| Watcher never queues a font | Is the font folder in `watchDirs` (`~/.fontsync/config.json`)? `.woff2`/`.dfont` land under *Skipped* by design. |
+| Plugin finds nothing | Run `backend/test-backend.mjs`. If that passes, the problem is in the plugin, not the backend. |
+| Plugin can't reach the network | `manifest.json` allows `https://*.supabase.co` — a custom domain needs adding there. |
 
 ## Decisions worth knowing about
 

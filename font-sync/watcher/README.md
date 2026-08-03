@@ -15,12 +15,21 @@ talks to Supabase, so there is nothing to `npm install`.
 
 ## Run it
 
+Easiest path is `../setup.sh`, which configures everything and starts this for
+you. To run it directly:
+
 ```bash
 cd font-sync/watcher
 node bin/fontsync.js
 ```
 
 It opens the settings UI in your browser. Flags: `--port 7331`, `--no-open`.
+
+To sign in from the terminal instead of the UI (setup.sh uses this):
+
+```bash
+node bin/signin.js you@agency.com
+```
 
 ## First-run behaviour
 
