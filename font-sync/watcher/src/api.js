@@ -148,7 +148,9 @@ export class FontSyncApi {
   // client-side so we can fall back to "same family, different style".
   async findByFamilies(familyKeys) {
     if (!familyKeys.length) return [];
-    const list = familyKeys.map((k) => `"${k.replace(/"/g, '')}"`).join(',');
+    // Family keys contain spaces, so the value has to be percent-encoded;
+    // the parentheses are PostgREST syntax and stay literal.
+    const list = encodeURIComponent(familyKeys.map((k) => `"${k.replace(/"/g, '')}"`).join(','));
     return this.request(
       `/rest/v1/fonts?family_key=in.(${list})&select=*&order=created_at.desc`,
     );

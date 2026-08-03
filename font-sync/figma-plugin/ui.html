@@ -1,0 +1,472 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: var(--figma-color-bg, #fff);
+    --bg-sec: var(--figma-color-bg-secondary, #f5f5f5);
+    --text: var(--figma-color-text, #000);
+    --text-sec: var(--figma-color-text-secondary, #666);
+    --border: var(--figma-color-border, #e6e6e6);
+    --brand: var(--figma-color-bg-brand, #0d99ff);
+    --brand-text: var(--figma-color-text-onbrand, #fff);
+    --danger: var(--figma-color-text-danger, #d33);
+    --success: var(--figma-color-text-success, #14ae5c);
+    --warn-bg: var(--figma-color-bg-warning-tertiary, #fff8e6);
+    --warn-text: var(--figma-color-text-warning, #a07800);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 11px/1.45 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  #root { padding: 12px; }
+  h2 { font-size: 11px; font-weight: 600; margin: 0 0 8px; }
+  p { margin: 0 0 8px; color: var(--text-sec); }
+  label { display: block; margin: 8px 0 3px; color: var(--text-sec); }
+  input {
+    width: 100%; padding: 6px 8px; font-size: 11px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  button {
+    padding: 6px 12px; font-size: 11px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+  }
+  button.primary { background: var(--brand); border-color: var(--brand); color: var(--brand-text); }
+  button.tiny { padding: 3px 8px; font-size: 10px; }
+  button:disabled { opacity: .4; cursor: default; }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .between { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .bar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding-bottom: 10px; margin-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  .card { border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 8px; }
+  .card.found { border-left: 3px solid var(--success); }
+  .card.absent { border-left: 3px solid var(--border); }
+  .name { font-weight: 600; font-size: 12px; }
+  .muted { color: var(--text-sec); }
+  .tag {
+    display: inline-block; padding: 1px 6px; border-radius: 999px;
+    background: var(--bg-sec); color: var(--text-sec); font-size: 10px; margin-left: 4px;
+  }
+  .steps {
+    background: var(--bg-sec); border-radius: 4px; padding: 8px; margin-top: 8px;
+    font-size: 10px; color: var(--text-sec);
+  }
+  .steps ol { margin: 4px 0 0; padding-left: 16px; }
+  .warn { background: var(--warn-bg); color: var(--warn-text); border-radius: 4px; padding: 8px; margin-bottom: 10px; }
+  .err { color: var(--danger); margin-top: 6px; }
+  .ok { color: var(--success); }
+  .empty { text-align: center; padding: 24px 8px; color: var(--text-sec); }
+  .spin { display: inline-block; width: 10px; height: 10px; border: 2px solid var(--border);
+          border-top-color: var(--brand); border-radius: 50%; animation: r .7s linear infinite; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  a { color: var(--brand); }
+</style>
+</head>
+<body>
+<div id="root"><div class="empty"><span class="spin"></span></div></div>
+
+<script>
+// --- plumbing ---------------------------------------------------------------
+
+const send = (msg) => parent.postMessage({ pluginMessage: msg }, '*');
+const $ = (sel) => document.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// Must match normalizeKey() in the watcher, or lookups silently miss.
+const normalizeKey = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
+
+const app = {
+  view: 'loading',   // loading | setup | login | results
+  settings: null,    // { supabaseUrl, supabaseAnonKey }
+  session: null,     // { access_token, refresh_token, expires_at, user }
+  scope: 'document',
+  scanning: false,
+  missing: [],       // enriched with .match / .familyMatches
+  stats: null,
+  error: '',
+  busy: {},          // fontKey -> true while a download URL is being minted
+};
+
+// --- supabase (this half of the plugin is the only one with network access) ---
+
+async function sb(path, { method = 'GET', body, useSession = true } = {}) {
+  const res = await fetch(`${app.settings.supabaseUrl}${path}`, {
+    method,
+    headers: {
+      apikey: app.settings.supabaseAnonKey,
+      Authorization: `Bearer ${useSession && app.session ? app.session.access_token : app.settings.supabaseAnonKey}`,
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+
+  if (!res.ok) {
+    const err = new Error(data?.error_description || data?.msg || data?.message || data?.error || `Request failed (${res.status})`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+function storeSession(data) {
+  app.session = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at ?? Math.floor(Date.now() / 1000) + (data.expires_in ?? 3600),
+    user: { id: data.user?.id, email: data.user?.email },
+  };
+  send({ type: 'save-session', session: app.session });
+  return app.session;
+}
+
+async function signIn(email, password) {
+  return storeSession(await sb('/auth/v1/token?grant_type=password', {
+    method: 'POST', useSession: false, body: { email, password },
+  }));
+}
+
+/** Refreshes a minute before expiry; a dead refresh token drops to the login view. */
+async function ensureSession() {
+  if (!app.session) return null;
+  if (app.session.expires_at - 60 > Math.floor(Date.now() / 1000)) return app.session;
+  try {
+    return storeSession(await sb('/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST', useSession: false, body: { refresh_token: app.session.refresh_token },
+    }));
+  } catch {
+    app.session = null;
+    send({ type: 'save-session', session: null });
+    app.view = 'login';
+    render();
+    return null;
+  }
+}
+
+// --- lookup -----------------------------------------------------------------
+
+async function lookupInLibrary(missing) {
+  if (!missing.length) return missing;
+
+  const keys = [...new Set(missing.map((m) => normalizeKey(m.family)))];
+  const inList = keys.map((k) => `"${k.replace(/"/g, '')}"`).join(',');
+  const rows = await sb(`/rest/v1/fonts?family_key=in.(${encodeURIComponent(inList)})&select=*&order=created_at.desc`);
+
+  for (const font of missing) {
+    const familyKey = normalizeKey(font.family);
+    const styleKey = normalizeKey(font.style);
+    const sameFamily = rows.filter((r) => r.family_key === familyKey);
+
+    // Newest exact family+style wins; anything else in the family is offered
+    // as a near miss so the user knows the family is at least partly there.
+    font.match = sameFamily.find((r) => r.style_key === styleKey) || null;
+    font.familyMatches = sameFamily.filter((r) => r.style_key !== styleKey);
+  }
+  return missing;
+}
+
+async function download(font) {
+  const row = font.match;
+  app.busy[font.key] = true;
+  app.error = '';
+  render();
+
+  try {
+    await ensureSession();
+    const signed = await sb(`/storage/v1/object/sign/fonts/${encodeURI(row.storage_path)}`, {
+      method: 'POST', body: { expiresIn: 3600 },
+    });
+    const url = `${app.settings.supabaseUrl}/storage/v1${signed.signedURL || signed.signedUrl}` +
+      `&download=${encodeURIComponent(row.file_name)}`;
+
+    send({ type: 'open-external', url });
+    send({ type: 'notify', message: `Downloading ${row.file_name} — install it, then rescan` });
+    font.downloaded = true;
+  } catch (err) {
+    app.error = err.message;
+  } finally {
+    delete app.busy[font.key];
+    render();
+  }
+}
+
+// --- actions ----------------------------------------------------------------
+
+function scan() {
+  app.scanning = true;
+  app.error = '';
+  render();
+  send({ type: 'scan', scope: app.scope });
+}
+
+async function onScanResult(payload) {
+  app.stats = payload.stats;
+  app.missing = payload.missing;
+  try {
+    await ensureSession();
+    if (app.session) await lookupInLibrary(app.missing);
+  } catch (err) {
+    app.error = `Could not reach the font library: ${err.message}`;
+  }
+  app.scanning = false;
+  app.view = 'results';
+  render();
+}
+
+// --- views ------------------------------------------------------------------
+
+function viewSetup() {
+  return `
+    <h2>Connect to your team library</h2>
+    <p>Paste your Supabase project URL and anon key (Settings → API). Your team lead can send these.</p>
+    <label>Project URL</label>
+    <input id="url" placeholder="https://yourproject.supabase.co" value="${esc(app.settings?.supabaseUrl || '')}">
+    <label>Anon key</label>
+    <input id="key" placeholder="eyJhbGci..." value="${esc(app.settings?.supabaseAnonKey || '')}">
+    <div class="row" style="margin-top:12px"><button class="primary" data-act="save-settings">Save</button></div>
+    ${app.error ? `<div class="err">${esc(app.error)}</div>` : ''}`;
+}
+
+function viewLogin() {
+  return `
+    <h2>Sign in</h2>
+    <p>Use the account your team set up for the font library.</p>
+    <label>Email</label><input id="email" type="email">
+    <label>Password</label><input id="password" type="password">
+    <div class="row" style="margin-top:12px">
+      <button class="primary" data-act="signin">Sign in</button>
+      <button data-act="reset-settings">Change project</button>
+    </div>
+    ${app.error ? `<div class="err">${esc(app.error)}</div>` : ''}`;
+}
+
+function installSteps(row) {
+  return `
+    <div class="steps">
+      Figma plugins can't install fonts for you — the file downloads to your machine and you install it once:
+      <ol>
+        <li><b>macOS</b>: open the downloaded file → <b>Install Font</b></li>
+        <li><b>Windows</b>: right-click the file → <b>Install</b></li>
+        <li>Back in Figma, hit <b>Rescan</b> (restart Figma if it doesn't appear)</li>
+      </ol>
+      ${esc(row.file_name)} · shared by ${esc(row.uploader)}${row.project_tag ? ` · ${esc(row.project_tag)}` : ''}
+    </div>`;
+}
+
+function fontCard(font) {
+  const usage = `${font.count} layer${font.count === 1 ? '' : 's'}${font.pages.length ? ` · ${esc(font.pages.slice(0, 2).join(', '))}` : ''}`;
+  const busy = app.busy[font.key];
+
+  if (font.match) {
+    return `
+      <div class="card found">
+        <div class="between">
+          <div>
+            <div class="name">${esc(font.family)} <span class="muted">${esc(font.style)}</span></div>
+            <div class="muted">${usage}</div>
+          </div>
+          <button class="primary" data-act="download" data-key="${esc(font.key)}" ${busy ? 'disabled' : ''}>
+            ${busy ? '<span class="spin"></span>' : (font.downloaded ? 'Download again' : 'Download')}
+          </button>
+        </div>
+        ${font.downloaded ? installSteps(font.match) : `
+          <div class="muted" style="margin-top:6px">
+            In the library — shared by ${esc(font.match.uploader)}
+            ${font.match.project_tag ? `<span class="tag">${esc(font.match.project_tag)}</span>` : ''}
+          </div>`}
+        <div class="row" style="margin-top:6px">
+          <button class="tiny" data-act="select" data-key="${esc(font.key)}">Show layers</button>
+        </div>
+      </div>`;
+  }
+
+  const near = font.familyMatches?.length
+    ? `<div class="muted" style="margin-top:6px">
+         ${font.familyMatches.length} other style${font.familyMatches.length === 1 ? '' : 's'} of ${esc(font.family)} in the library
+         (${esc(font.familyMatches.slice(0, 4).map((r) => r.style).join(', '))}) — but not ${esc(font.style)}.
+       </div>`
+    : `<div class="muted" style="margin-top:6px">Not in the team library yet — ask whoever made this file to install Font Watcher and share it.</div>`;
+
+  return `
+    <div class="card absent">
+      <div class="between">
+        <div>
+          <div class="name">${esc(font.family)} <span class="muted">${esc(font.style)}</span></div>
+          <div class="muted">${usage}</div>
+        </div>
+      </div>
+      ${near}
+      <div class="row" style="margin-top:6px">
+        <button class="tiny" data-act="select" data-key="${esc(font.key)}">Show layers</button>
+        <button class="tiny" data-act="copy" data-key="${esc(font.key)}">Copy name</button>
+      </div>
+    </div>`;
+}
+
+function viewResults() {
+  const found = app.missing.filter((f) => f.match).length;
+
+  const header = `
+    <div class="bar">
+      <div>
+        <div style="font-weight:600">${app.missing.length} missing font${app.missing.length === 1 ? '' : 's'}</div>
+        <div class="muted">${app.stats ? `${app.stats.usedFontCount} used in this ${app.stats.scope === 'page' ? 'page' : 'file'}` : ''}</div>
+      </div>
+      <div class="row">
+        <button class="tiny" data-act="toggle-scope">${app.scope === 'page' ? 'This page' : 'Whole file'}</button>
+        <button class="tiny primary" data-act="scan" ${app.scanning ? 'disabled' : ''}>${app.scanning ? '…' : 'Rescan'}</button>
+      </div>
+    </div>`;
+
+  if (app.scanning) return `${header}<div class="empty"><span class="spin"></span><div style="margin-top:8px">Scanning…</div></div>`;
+
+  if (!app.missing.length) {
+    return `${header}
+      <div class="empty">
+        <div style="font-size:20px">✓</div>
+        <div style="margin-top:6px">You have every font this ${app.stats?.scope === 'page' ? 'page' : 'file'} uses.</div>
+      </div>`;
+  }
+
+  return `
+    ${header}
+    ${found ? `<div class="warn">
+        ${found} of these ${found === 1 ? 'is' : 'are'} in your team library. Fonts are often licensed per seat —
+        make sure your licence covers you before installing.
+      </div>` : ''}
+    ${app.missing.map(fontCard).join('')}
+    ${app.error ? `<div class="err">${esc(app.error)}</div>` : ''}
+    <div class="row" style="margin-top:10px;justify-content:flex-end">
+      <button class="tiny" data-act="signout">Sign out (${esc(app.session?.user?.email || '')})</button>
+    </div>`;
+}
+
+function render() {
+  const views = { loading: () => '<div class="empty"><span class="spin"></span></div>', setup: viewSetup, login: viewLogin, results: viewResults };
+  $('#root').innerHTML = (views[app.view] || views.loading)();
+  send({ type: 'resize', height: document.body.scrollHeight + 24 });
+}
+
+// --- events -----------------------------------------------------------------
+
+document.addEventListener('click', async (event) => {
+  const target = event.target.closest('[data-act]');
+  if (!target) return;
+  const font = target.dataset.key ? app.missing.find((f) => f.key === target.dataset.key) : null;
+
+  switch (target.dataset.act) {
+    case 'save-settings': {
+      const url = $('#url').value.trim().replace(/\/+$/, '');
+      const key = $('#key').value.trim();
+      if (!/^https:\/\/.+/.test(url) || !key) {
+        app.error = 'Enter the full https:// project URL and the anon key.';
+        return render();
+      }
+      app.settings = { supabaseUrl: url, supabaseAnonKey: key };
+      send({ type: 'save-settings', settings: app.settings });
+      app.error = '';
+      app.view = app.session ? 'results' : 'login';
+      render();
+      if (app.session) scan();
+      break;
+    }
+
+    case 'signin':
+      try {
+        target.disabled = true;
+        await signIn($('#email').value.trim(), $('#password').value);
+        app.error = '';
+        scan();
+      } catch (err) {
+        app.error = err.message;
+        render();
+      }
+      break;
+
+    case 'signout':
+      app.session = null;
+      send({ type: 'save-session', session: null });
+      app.view = 'login';
+      render();
+      break;
+
+    case 'reset-settings':
+      app.view = 'setup';
+      render();
+      break;
+
+    case 'toggle-scope':
+      app.scope = app.scope === 'page' ? 'document' : 'page';
+      scan();
+      break;
+
+    case 'scan':
+      scan();
+      break;
+
+    case 'download':
+      if (font) await download(font);
+      break;
+
+    case 'select':
+      if (font) send({ type: 'select-nodes', nodeIds: font.nodeIds });
+      break;
+
+    case 'copy': {
+      if (!font) break;
+      // navigator.clipboard is unreliable in the plugin iframe; execCommand is not.
+      const scratch = document.createElement('textarea');
+      scratch.value = `${font.family} ${font.style}`;
+      document.body.appendChild(scratch);
+      scratch.select();
+      document.execCommand('copy');
+      scratch.remove();
+      send({ type: 'notify', message: `Copied "${font.family} ${font.style}"` });
+      break;
+    }
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  if (app.view === 'login') $('[data-act="signin"]')?.click();
+  if (app.view === 'setup') $('[data-act="save-settings"]')?.click();
+});
+
+onmessage = async (event) => {
+  const msg = event.data.pluginMessage;
+  if (!msg) return;
+
+  switch (msg.type) {
+    case 'init':
+      app.settings = msg.settings;
+      app.session = msg.session;
+      if (!app.settings?.supabaseUrl) { app.view = 'setup'; render(); break; }
+      if (!app.session) { app.view = 'login'; render(); break; }
+      scan();
+      break;
+
+    case 'scan-result':
+      await onScanResult(msg);
+      break;
+
+    case 'error':
+      app.scanning = false;
+      app.error = msg.message;
+      render();
+      break;
+  }
+};
+
+send({ type: 'init' });
+</script>
+</body>
+</html>

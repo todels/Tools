@@ -1,0 +1,15 @@
+{
+  "name": "Font Finder",
+  "id": "font-finder-mvp",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": [
+      "https://*.supabase.co"
+    ],
+    "reasoning": "Looks up fonts used in this file against the team's font library and mints a short-lived signed download link for ones a teammate has already shared."
+  }
+}
